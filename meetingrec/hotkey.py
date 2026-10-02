@@ -1,7 +1,8 @@
 """System-wide start/stop shortcut.
 
-Windows uses RegisterHotKey (no dependencies). Linux (X11) and macOS use the
-optional `pynput` package; macOS also asks for Accessibility permission.
+Windows uses RegisterHotKey (no dependencies); Linux (X11) uses the optional
+`pynput` package. Not on macOS yet: pynput's keyboard listener calls input-source
+APIs off the main thread there, which current macOS kills the app for.
 """
 
 import ctypes
@@ -66,6 +67,9 @@ class GlobalHotkey:
         self.error = ""
 
     def start(self) -> bool:
+        if sys.platform == "darwin":
+            self.error = "global hotkeys aren't supported on macOS yet"
+            return False
         if sys.platform != "win32":
             return self._start_pynput()
         threading.Thread(target=self._run, daemon=True).start()

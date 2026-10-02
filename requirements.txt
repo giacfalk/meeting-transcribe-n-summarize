@@ -14,4 +14,4 @@ anthropic>=1.0          # only for summary_backend = "anthropic-api"
 # Desktop integration
 pystray>=0.19 ; sys_platform != "darwin"   # notification-area (tray) icon
 Pillow>=10                                 # tray icon images
-pynput>=1.7 ; sys_platform != "win32"      # global hotkey on Linux (X11) and macOS
+pynput>=1.7 ; sys_platform == "linux"      # global hotkey on Linux (X11)

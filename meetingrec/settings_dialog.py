@@ -173,8 +173,10 @@ class SettingsDialog(tk.Toplevel):
 
     def _build_behavior(self, f):
         self.v_hotkey, e = self._entry(f, "hotkey")
-        self._row(f, "Global hotkey", e, "Starts/stops recording from anywhere, e.g. "
-                  "ctrl+alt+r. Empty = off.")
+        if osutil.MACOS:
+            e.state(["disabled"])
+        self._row(f, "Global hotkey", e, "Not available on macOS yet" if osutil.MACOS else
+                  "Starts/stops recording from anywhere, e.g. ctrl+alt+r. Empty = off.")
         can_watch = meetings.supported()
         self.v_prompt = self._check(
             f, "Offer to record when a call starts", "meeting_prompt",

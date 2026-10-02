@@ -22,7 +22,7 @@
 - **macOS support** (*experimental* Apple Silicon build). It records the microphone; with
   a virtual device such as BlackHole it also records the other participants.
 - A **`system_audio`** setting picks which device is recorded as "others".
-- The global **hotkey** now also works on Linux (X11) and macOS.
+- The global **hotkey** now also works on Linux (X11).
 - A **log file** (`meetingrec.log`, next to `settings.json`) for troubleshooting.
 
 ### Fixes

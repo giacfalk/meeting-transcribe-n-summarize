@@ -199,7 +199,7 @@ the file.
 | `write_srt` | `false` | Also write an `.srt` subtitle file |
 | `silence_timeout` | `120` | Seconds of silence before recording stops itself (`0` = never) |
 | `silence_threshold` | `0.01` | Audio level (0–1) counted as silence. Used for auto-stop, and a channel that never gets louder than this isn't transcribed. |
-| `hotkey` | `""` | Global start/stop shortcut, e.g. `"ctrl+alt+r"`. It works even when the app is minimized. On Linux it needs X11; on macOS it needs Accessibility permission. |
+| `hotkey` | `""` | Global start/stop shortcut, e.g. `"ctrl+alt+r"`. It works even when the app is minimized. On Linux it needs X11; not available on macOS yet. |
 | `meeting_prompt` | `true` | Offer to record when a meeting app starts using the microphone |
 | `meeting_apps` | *(list)* | Parts of app names that count as meeting apps (`"*"` = any app) |
 | `tray_icon` | `true` | Show the tray icon (Windows, Linux) |
@@ -256,7 +256,7 @@ this tool lawfully.
 | Transcription and summaries | ✅ | ✅ | ✅ |
 | Tray icon | ✅ | ✅ needs a tray (GNOME: the AppIndicator extension) | – (Dock icon) |
 | Offer to record when a call starts | ✅ | ✅ | – |
-| Global hotkey | ✅ | ✅ X11 only | ✅ needs Accessibility permission |
+| Global hotkey | ✅ | ✅ X11 only | – (not yet) |
 | Release builds | ✅ installer + zip | *experimental* | *experimental* |
 
 Every platform is tested in CI. The Linux tests include real audio capture through
