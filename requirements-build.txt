@@ -1,4 +1,4 @@
-# Exact versions used to build the released .exe (python build_exe.py --zip).
+# Exact versions used to build the released .exe with Python 3.14.4 (see .github/workflows/ci.yml).
 # Regenerate from a clean venv with: pip freeze > requirements-build.txt
 altgraph==0.17.5
 annotated-doc==0.0.5

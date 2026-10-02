@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   test:
     name: Test (Python ${{ matrix.python }})
@@ -41,7 +45,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          # Pinned: from 3.14.7 the Windows builds ship Tcl/Tk 9 inside a zipfs
+          # archive, which PyInstaller 6.20 doesn't bundle (the exe then crashes on
+          # start). 3.14.4 has Tcl/Tk 8.6 on disk, like the tested local builds.
+          python-version: "3.14.4"
           cache: pip
           cache-dependency-path: requirements-build.txt
       - name: Install pinned build dependencies
@@ -57,6 +64,29 @@ jobs:
           fi
       - name: Build and zip
         run: python build_exe.py --zip
+      - name: Smoke-test the exe
+        shell: pwsh
+        run: |
+          # The app writes settings.json during start-up; a crash (e.g. missing
+          # Tcl/Tk data) shows an "Unhandled exception" window instead.
+          $sb = Join-Path $env:RUNNER_TEMP "smoke"
+          $psi = New-Object System.Diagnostics.ProcessStartInfo (Resolve-Path "dist\MeetingRecorder\MeetingRecorder.exe")
+          $psi.UseShellExecute = $false
+          $psi.EnvironmentVariables["APPDATA"] = "$sb\appdata"
+          $psi.EnvironmentVariables["OneDrive"] = "$sb\onedrive"
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $settings = "$sb\appdata\MeetingRecorder\settings.json"
+          $deadline = (Get-Date).AddSeconds(90)
+          while (-not (Test-Path $settings) -and -not $p.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+          Start-Sleep -Seconds 3
+          $p.Refresh()
+          $title = $p.MainWindowTitle
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if (-not (Test-Path $settings) -or $title -ne "Meeting Recorder") {
+            Write-Error "The exe did not start properly (window title: '$title')"
+            exit 1
+          }
+          "The exe started properly (window title: '$title')"
       - uses: actions/upload-artifact@v7
         with:
           name: MeetingRecorder-windows-x64
