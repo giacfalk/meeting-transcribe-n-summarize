@@ -99,7 +99,21 @@ jobs:
         run: |
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release/*.zip release/*.sha256 --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" release/*.zip release/*.sha256 \
-              --title "Meeting Recorder $GITHUB_REF_NAME" --generate-notes
+            exit 0
           fi
+          # Release notes: this version's CHANGELOG.md section, plus the download details.
+          awk -v v="${GITHUB_REF_NAME#v}" '$0 == "## " v {f=1; next} /^## / && f {exit} f' \
+            CHANGELOG.md > notes.md
+          zip=$(basename release/*.zip)
+          sha=$(cut -d' ' -f1 release/*.sha256)
+          cat >> notes.md <<NOTES
+
+          ### Download
+          \`$zip\` is a self-contained build for Windows 10/11 x64, with no Python needed. Unzip it to a short path and run \`MeetingRecorder.exe\`.
+          SHA-256: \`$sha\`
+
+          The build is not code-signed. If SmartScreen warns you, choose *More info → Run anyway*.
+          ⚠️ Get the consent of all participants before recording.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" release/*.zip release/*.sha256 \
+            --title "Meeting Recorder $GITHUB_REF_NAME" --notes-file notes.md
