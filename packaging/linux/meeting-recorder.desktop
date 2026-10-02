@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Meeting Recorder
+Comment=Record, transcribe and summarize meetings
+Exec="MEETING_RECORDER_DIR/MeetingRecorder"
+Icon=MEETING_RECORDER_DIR/_internal/assets/logo.png
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+StartupWMClass=Tk

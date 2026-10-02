@@ -16,11 +16,12 @@ concurrency:
 
 jobs:
   test:
-    name: Test (Python ${{ matrix.python }})
-    runs-on: windows-latest
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
         python: ["3.10", "3.14"]
     steps:
       - uses: actions/checkout@v7
@@ -28,31 +29,55 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
+      - name: Linux - virtual display and audio devices
+        if: runner.os == 'Linux'
+        run: .github/linux-audio.sh
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Lint
         run: ruff check .
       - name: Test
-        run: pytest -v
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            MR_DEVICE_TESTS=1 xvfb-run -a pytest -v -rs
+          else
+            pytest -v -rs
+          fi
 
   build:
-    name: Build Windows exe
+    name: Build (${{ matrix.name }})
     needs: test
-    runs-on: windows-latest
-    permissions:
-      contents: write   # needed to attach the zip to a release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+          - name: linux-x64
+            os: ubuntu-22.04     # older glibc, so the bundle also runs on older distributions
+          - name: macos-arm64
+            os: macos-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          # Pinned: from 3.14.7 the Windows builds ship Tcl/Tk 9 inside a zipfs
-          # archive, which PyInstaller 6.20 doesn't bundle (the exe then crashes on
-          # start). 3.14.4 has Tcl/Tk 8.6 on disk, like the tested local builds.
           python-version: "3.14.4"
           cache: pip
-          cache-dependency-path: requirements-build.txt
+          cache-dependency-path: requirements*.txt
+      - name: Linux - virtual display and audio devices
+        if: runner.os == 'Linux'
+        run: .github/linux-audio.sh
       - name: Install pinned build dependencies
-        run: python -m pip install -r requirements-build.txt
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python -m pip install -r requirements-build.txt
+          else
+            # The lock file is a Windows freeze; reuse its versions where they apply.
+            python -m pip install -r requirements.txt pyinstaller -c requirements-build.txt
+          fi
       - name: Check tag matches the app version
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -62,58 +87,87 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match meetingrec.__version__ ($version)"
             exit 1
           fi
-      - name: Build and zip
-        run: python build_exe.py --zip
-      - name: Smoke-test the exe
+      - name: Build
+        shell: bash
+        run: python build_exe.py --zip $([ "$RUNNER_OS" = "Windows" ] && echo --installer)
+      - name: Smoke-test the build
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) python scripts/smoke_test.py dist/MeetingRecorder/MeetingRecorder.exe ;;
+            macOS)   python scripts/smoke_test.py dist/MeetingRecorder.app ;;
+            Linux)   xvfb-run -a python scripts/smoke_test.py dist/MeetingRecorder/MeetingRecorder ;;
+          esac
+      - name: macOS - check the app bundle
+        if: runner.os == 'macOS'
+        run: |
+          codesign --verify --deep --strict dist/MeetingRecorder.app
+          /usr/libexec/PlistBuddy -c "Print :NSMicrophoneUsageDescription" \
+            dist/MeetingRecorder.app/Contents/Info.plist
+      - name: Windows - install, start and uninstall with the installer
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # The app writes settings.json during start-up; a crash (e.g. missing
-          # Tcl/Tk data) shows an "Unhandled exception" window instead.
-          $sb = Join-Path $env:RUNNER_TEMP "smoke"
-          $psi = New-Object System.Diagnostics.ProcessStartInfo (Resolve-Path "dist\MeetingRecorder\MeetingRecorder.exe")
-          $psi.UseShellExecute = $false
-          $psi.EnvironmentVariables["APPDATA"] = "$sb\appdata"
-          $psi.EnvironmentVariables["OneDrive"] = "$sb\onedrive"
-          $p = [System.Diagnostics.Process]::Start($psi)
-          $settings = "$sb\appdata\MeetingRecorder\settings.json"
-          $deadline = (Get-Date).AddSeconds(90)
-          while (-not (Test-Path $settings) -and -not $p.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
-          Start-Sleep -Seconds 3
-          $p.Refresh()
-          $title = $p.MainWindowTitle
-          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-          if (-not (Test-Path $settings) -or $title -ne "Meeting Recorder") {
-            Write-Error "The exe did not start properly (window title: '$title')"
-            exit 1
-          }
-          "The exe started properly (window title: '$title')"
+          $setup = (Get-ChildItem release\*-setup.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP "Meeting Recorder"
+          Start-Process $setup -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/NORESTART", "/DIR=`"$dir`""
+          if (-not (Test-Path "$dir\MeetingRecorder.exe")) { throw "The installer did not install the app" }
+          $lnk = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Meeting Recorder.lnk"
+          if (-not (Test-Path $lnk)) { throw "No Start menu shortcut at $lnk" }
+          python scripts/smoke_test.py "$dir\MeetingRecorder.exe"
+          if ($LASTEXITCODE) { throw "The installed app did not start properly" }
+          Start-Process "$dir\unins000.exe" -Wait -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES"
+          for ($i = 0; $i -lt 30 -and (Test-Path "$dir\MeetingRecorder.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$dir\MeetingRecorder.exe") { throw "The uninstaller left the app behind" }
+          "Installer OK: installed, started, uninstalled."
       - uses: actions/upload-artifact@v7
         with:
-          name: MeetingRecorder-windows-x64
+          name: MeetingRecorder-${{ matrix.name }}
           path: release/*
-      - name: Attach to GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create the release
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" release/*.zip release/*.sha256 --clobber
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
             exit 0
           fi
-          # Release notes: this version's CHANGELOG.md section, plus the download details.
+          # Release notes: this version's CHANGELOG.md section, plus the downloads.
           awk -v v="${GITHUB_REF_NAME#v}" '$0 == "## " v {f=1; next} /^## / && f {exit} f' \
             CHANGELOG.md > notes.md
-          zip=$(basename release/*.zip)
-          sha=$(cut -d' ' -f1 release/*.sha256)
-          cat >> notes.md <<NOTES
-
-          ### Download
-          \`$zip\` is a self-contained build for Windows 10/11 x64, with no Python needed. Unzip it to a short path and run \`MeetingRecorder.exe\`.
-          SHA-256: \`$sha\`
-
-          The build is not code-signed. If SmartScreen warns you, choose *More info → Run anyway*.
-          ⚠️ Get the consent of all participants before recording.
-          NOTES
-          gh release create "$GITHUB_REF_NAME" release/*.zip release/*.sha256 \
+          {
+            echo
+            echo "### Downloads"
+            echo "| File | For |"
+            echo "|---|---|"
+            for f in release/*; do
+              case "$f" in
+                *windows-x64-setup.exe) echo "| \`$(basename "$f")\` | **Windows 10/11 installer** (recommended) |" ;;
+                *windows-x64.zip)       echo "| \`$(basename "$f")\` | Windows 10/11, portable (unzip and run) |" ;;
+                *macos-arm64.zip)       echo "| \`$(basename "$f")\` | macOS on Apple Silicon (experimental) |" ;;
+                *linux-x64.tar.gz)      echo "| \`$(basename "$f")\` | Linux x64 (experimental) |" ;;
+              esac
+            done
+            echo
+            echo "Each file has a \`.sha256\` checksum next to it. The builds are not code-signed:"
+            echo "on Windows choose *More info → Run anyway* if SmartScreen warns you; on macOS,"
+            echo "right-click the app and choose *Open* the first time. See the README for details."
+            echo
+            echo "⚠️ Get the consent of all participants before recording."
+          } >> notes.md
+          gh release create "$GITHUB_REF_NAME" release/* \
             --title "Meeting Recorder $GITHUB_REF_NAME" --notes-file notes.md
