@@ -1,8 +1,7 @@
 """Tkinter GUI: one button to start/stop; transcription and summaries run in the background."""
 
-import os
+import platform
 import queue
-import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -10,9 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
-from . import __version__, config, files, summarize
+from . import __version__, config, files, meetings, osutil, summarize, tray
 from .audio import DualChannelRecorder, device_names, repair_wav, soundcard_available
 from .hotkey import GlobalHotkey
+from .settings_dialog import SettingsDialog
 from .transcribe import BACKEND, Transcriber, format_transcript, to_srt, transcribe_recording
 
 # -- Path resolution (works both in dev and when frozen by PyInstaller) --
@@ -21,18 +21,32 @@ if getattr(sys, "frozen", False):
     _HERE = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
 else:
     _HERE = Path(__file__).resolve().parent.parent
+LOGO = _HERE / "assets" / "logo.png"
 
 # -- Look ------------------------------------------------------------------
+SANS, MONO  = osutil.FONTS
 BG          = "#1e1e2e"
 BTN_START   = "#4ade80"   # green
 BTN_STOP    = "#f87171"   # red
+BTN_SMALL   = "#313244"
 TEXT_MAIN   = "#cdd6f4"
 TEXT_DIM    = "#6c7086"
-FONT_BODY   = ("Segoe UI", 10)
-FONT_TIMER  = ("Segoe UI", 36, "bold")
-FONT_STATUS = ("Segoe UI", 11)
-FONT_LOG    = ("Consolas",  9)
+FONT_BODY   = (SANS, 10)
+FONT_TIMER  = (SANS, 36, "bold")
+FONT_STATUS = (SANS, 11)
+FONT_LOG    = (MONO, 9)
 TITLE       = "Meeting Recorder"
+
+
+def make_button(parent, text, command, bg, fg, font, active_bg=None, **kw):
+    """A flat colored button. macOS ignores button colors, so there it's a clickable label."""
+    if not osutil.MACOS:
+        return tk.Button(parent, text=text, command=command, font=font, bg=bg, fg=fg,
+                         activebackground=active_bg or bg, activeforeground=fg,
+                         relief=tk.FLAT, cursor="hand2", bd=0, **kw)
+    label = tk.Label(parent, text=text, font=font, bg=bg, fg=fg, cursor="hand2", **kw)
+    label.bind("<Button-1>", lambda _e: command())
+    return label
 
 
 class App:
@@ -42,6 +56,8 @@ class App:
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        if osutil.MACOS:
+            self.root.createcommand("tk::mac::Quit", self._on_close)
 
         self.settings, setting_warnings = config.load_settings()
         self._settings_mtime = self._mtime()
@@ -51,9 +67,18 @@ class App:
         self._timer_id    = None
         self._recorder: DualChannelRecorder | None = None
         self._recording_wav: Path | None = None   # file being recorded right now
+        self._trigger_app: str | None = None      # meeting app whose call we're recording
         self._errors_seen = 0
         self._warned_silent_mic = False
         self._hotkey: GlobalHotkey | None = None
+        self._tray: tray.TrayIcon | None = None
+        self._told_about_tray = False
+        self._watcher: meetings.MeetingWatcher | None = None
+        self._declined: set[str] = set()          # apps whose call we were told not to record
+        self._prompt_win: tk.Toplevel | None = None
+        self._prompt_app: str | None = None
+        self._prompt_timer = None
+        self._settings_win: SettingsDialog | None = None
         self._transcriber = Transcriber(log=self._log_from_thread)
 
         # Background work. Stopping a recording drops its .wav on this queue; one
@@ -65,16 +90,25 @@ class App:
 
         self._build()
         self._log(f"Meeting Recorder v{__version__}")
+        audio_ok = soundcard_available()
+        self._log(f"Started on {platform.platform()}, Python {platform.python_version()}; "
+                  f"transcription: {BACKEND or 'none'}; audio capture: "
+                  f"{'ok' if audio_ok else 'unavailable'}", window=False)
         for w in setting_warnings:
             self._log(w)
         if BACKEND is None:
+            self._log("ERROR: no transcription backend (pip install faster-whisper).")
             messagebox.showerror(TITLE, "No transcription backend found.\n\n"
                                  "Install one with:  pip install faster-whisper")
-        if not soundcard_available():
+        if not audio_ok:
+            self._log("ERROR: audio capture is unavailable (the 'soundcard' package "
+                      "could not be loaded).")
             messagebox.showerror(TITLE, "Audio capture is unavailable: the 'soundcard' "
                                  "package could not be loaded.")
         self._report_summary_backend()
         self._apply_hotkey()
+        self._apply_tray()
+        self._apply_meeting_watch()
 
         self._worker = threading.Thread(target=self._process_worker, daemon=True)
         self._worker.start()
@@ -82,6 +116,7 @@ class App:
 
         # Pick up edits to settings.json when the user comes back to the window.
         self.root.bind("<FocusIn>", lambda _e: self._reload_settings())
+        self.root.bind("<Unmap>", self._on_unmap)
 
     # ---- UI construction ------------------------------------------------
 
@@ -96,15 +131,8 @@ class App:
         tk.Label(self.root, textvariable=self._timer_var,
                  font=FONT_TIMER, bg=BG, fg=TEXT_MAIN).pack(pady=(6, 14))
 
-        self._btn = tk.Button(
-            self.root, text="Start Recording",
-            font=("Segoe UI", 13, "bold"),
-            bg=BTN_START, fg=BG,
-            activebackground=BTN_START, activeforeground=BG,
-            relief=tk.FLAT, cursor="hand2",
-            width=22, height=2,
-            command=self._toggle,
-        )
+        self._btn = make_button(self.root, "Start Recording", self._toggle, BTN_START, BG,
+                                (SANS, 13, "bold"), width=22, height=2)
         self._btn.pack(pady=(0, 18))
 
         # model selector + always-on-top row
@@ -140,7 +168,7 @@ class App:
         self._small_button(btn_row, "Open folder", self._open_folder)
         self._small_button(btn_row, "Settings", self._open_settings)
 
-        tk.Frame(self.root, bg="#313244", height=1).pack(fill=tk.X, pady=(12, 0))
+        tk.Frame(self.root, bg=BTN_SMALL, height=1).pack(fill=tk.X, pady=(12, 0))
 
         self._log_box = scrolledtext.ScrolledText(
             self.root, font=FONT_LOG, bg="#181825", fg=TEXT_DIM,
@@ -151,19 +179,14 @@ class App:
         self._log_box.pack(fill=tk.X)
 
         self._dir_var = tk.StringVar(value=self._saving_to_text())
-        tk.Label(self.root, textvariable=self._dir_var, font=("Segoe UI", 8),
+        tk.Label(self.root, textvariable=self._dir_var, font=(SANS, 8),
                  bg="#181825", fg=TEXT_DIM, anchor="w").pack(fill=tk.X, padx=8)
 
         tk.Frame(self.root, bg=BG, height=10).pack()
 
-    def _small_button(self, parent, text, command) -> tk.Button:
-        btn = tk.Button(
-            parent, text=text, font=("Segoe UI", 10),
-            bg="#313244", fg=TEXT_MAIN,
-            activebackground="#45475a", activeforeground=TEXT_MAIN,
-            relief=tk.FLAT, cursor="hand2", bd=0, padx=10, pady=4,
-            command=command,
-        )
+    def _small_button(self, parent, text, command):
+        btn = make_button(parent, text, command, BTN_SMALL, TEXT_MAIN, (SANS, 10),
+                          active_bg="#45475a", padx=10, pady=4)
         btn.pack(side=tk.LEFT, padx=3)
         return btn
 
@@ -197,7 +220,7 @@ class App:
         self.settings, setting_warnings = config.load_settings()
         for w in setting_warnings:
             self._log(w)
-        self._log("Settings reloaded.")
+        self._log("Settings updated.")
         self._model_var.set(self.settings["whisper_model"])
         self._set_model_choices()
         self._dir_var.set(self._saving_to_text())
@@ -206,18 +229,16 @@ class App:
         if (self.settings["summary_backend"], self.settings["summary_model"]) != \
                 (old["summary_backend"], old["summary_model"]):
             self._report_summary_backend()
+        self._apply_tray()
+        self._apply_meeting_watch()
         self._refresh_status()
 
     def _open_settings(self):
-        path = config.settings_path()
-        if not path.exists():
-            config.save_settings(self.settings, path)
-        try:
-            subprocess.Popen(["notepad.exe", str(path)])
-            self._log("Edit and save settings.json; changes apply when you "
-                      "return to this window.")
-        except OSError as exc:
-            self._log(f"Could not open {path}: {exc}")
+        if self._settings_win is not None and self._settings_win.winfo_exists():
+            self._settings_win.lift()
+            return
+        self._settings_win = SettingsDialog(self.root, self.settings,
+                                            on_saved=self._reload_settings)
 
     def _report_summary_backend(self):
         reason = summarize.unavailable_reason(self.settings)
@@ -246,6 +267,136 @@ class App:
         else:
             self._log(f"Hotkey {spec} unavailable: {hk.error}.")
 
+    def _apply_tray(self):
+        want = self.settings["tray_icon"] and tray.supported() and LOGO.exists()
+        if want and self._tray is None:
+            later = self.root.after
+            try:
+                self._tray = tray.TrayIcon(
+                    LOGO,
+                    on_show=lambda: later(0, self._show_window),
+                    on_toggle=lambda: later(0, self._toggle),
+                    on_process_pending=lambda: later(0, self._process_pending),
+                    on_open_folder=lambda: later(0, self._open_folder),
+                    on_quit=lambda: later(0, self._on_close),
+                    is_recording=lambda: self._recording,
+                )
+                self._tray.start()
+                self.root.after(1500, self._check_tray)
+            except Exception as exc:
+                self._tray = None
+                self._log(f"Tray icon unavailable: {exc}")
+        elif not want and self._tray is not None:
+            self._tray.stop()
+            self._tray = None
+            self._show_window()
+
+    def _check_tray(self):
+        if self._tray is not None and self._tray.error:
+            self._log(f"Tray icon unavailable: {self._tray.error}")
+            self._tray = None
+
+    def _apply_meeting_watch(self):
+        want = self.settings["meeting_prompt"] and meetings.supported()
+        if want and self._watcher is None:
+            self._watcher = meetings.MeetingWatcher(
+                lambda: self.settings["meeting_apps"],
+                on_start=lambda app: self.root.after(0, self._call_started, app),
+                on_end=lambda app: self.root.after(0, self._call_ended, app),
+            )
+            self._watcher.start()
+        elif not want and self._watcher is not None:
+            self._watcher.stop()
+            self._watcher = None
+
+    # ---- Window / tray --------------------------------------------------
+
+    def _show_window(self):
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def _on_unmap(self, event):
+        if (event.widget is self.root and self.settings["minimize_to_tray"]
+                and self._tray is not None and self._tray.running
+                and self.root.state() == "iconic"):
+            self.root.withdraw()
+            if not self._told_about_tray:
+                self._told_about_tray = True
+                self._tray.notify("Still running here. Click the icon to show the window.")
+
+    def _update_tray(self, status: str = ""):
+        if self._tray is not None:
+            try:
+                self._tray.update(status)
+            except Exception:
+                pass
+
+    # ---- Meeting prompts ------------------------------------------------
+
+    def _call_started(self, app: str):
+        if self._recording or app in self._declined:
+            return
+        self._prompt(f"{app} is using the microphone",
+                     "Record this meeting? Remember to ask everyone for their consent first.",
+                     "Record", lambda: self._start(trigger=app),
+                     on_decline=lambda: self._declined.add(app), app=app)
+        if self._tray is not None:
+            self._tray.notify(f"{app} is using the microphone. Record this meeting?")
+
+    def _call_ended(self, app: str):
+        self._declined.discard(app)
+        if self._prompt_app == app and not self._recording:
+            self._close_prompt()       # the call ended before anyone answered
+        if self._recording and self._trigger_app == app:
+            self._prompt(f"{app} stopped using the microphone",
+                         "The call seems to have ended. Stop recording?",
+                         "Stop recording", self._stop, app=app)
+
+    def _prompt(self, title: str, message: str, action_text: str, action,
+                on_decline=None, app: str | None = None, timeout_ms: int = 60_000):
+        """A small always-on-top question in the corner of the screen."""
+        self._close_prompt()
+        win = tk.Toplevel(self.root)
+        win.title(TITLE)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.attributes("-topmost", True)
+        tk.Label(win, text=title, font=(SANS, 11, "bold"), bg=BG, fg=TEXT_MAIN,
+                 wraplength=320, justify="left").pack(anchor="w", padx=16, pady=(14, 4))
+        tk.Label(win, text=message, font=FONT_BODY, bg=BG, fg=TEXT_DIM,
+                 wraplength=320, justify="left").pack(anchor="w", padx=16)
+        row = tk.Frame(win, bg=BG)
+        row.pack(anchor="e", padx=16, pady=14)
+
+        def decline():
+            self._close_prompt()
+            if on_decline:
+                on_decline()
+
+        def accept():
+            self._close_prompt()
+            action()
+
+        self._small_button(row, "Not now", decline)
+        make_button(row, action_text, accept, BTN_START, BG, (SANS, 10, "bold"),
+                    padx=12, pady=4).pack(side=tk.LEFT, padx=3)
+        win.protocol("WM_DELETE_WINDOW", decline)
+        win.update_idletasks()
+        x = win.winfo_screenwidth() - win.winfo_reqwidth() - 24
+        y = win.winfo_screenheight() - win.winfo_reqheight() - 72
+        win.geometry(f"+{x}+{y}")
+        self._prompt_win, self._prompt_app = win, app
+        self._prompt_timer = self.root.after(timeout_ms, decline)
+
+    def _close_prompt(self):
+        if self._prompt_timer:
+            self.root.after_cancel(self._prompt_timer)
+            self._prompt_timer = None
+        if self._prompt_win is not None:
+            self._prompt_win.destroy()
+            self._prompt_win = self._prompt_app = None
+
     # ---- Recording toggle -----------------------------------------------
 
     def _toggle(self):
@@ -254,12 +405,16 @@ class App:
         else:
             self._stop()
 
-    def _start(self):
+    def _start(self, trigger: str | None = None):
+        if self._recording:
+            return
         self._reload_settings()
         started = datetime.now()
         wav = files.new_recording_path(self._output_dir(), started)
-        recorder = DualChannelRecorder(wav, silence_threshold=self.settings["silence_threshold"],
-                                       microphone=self.settings["microphone"])
+        s = self.settings
+        recorder = DualChannelRecorder(wav, silence_threshold=s["silence_threshold"],
+                                       microphone=s["microphone"],
+                                       system_audio=s["system_audio"])
         try:
             recorder.start()
         except OSError as exc:
@@ -268,12 +423,14 @@ class App:
 
         self._recording, self._start_time = True, started
         self._recorder, self._recording_wav = recorder, wav
+        self._trigger_app = trigger
         self._errors_seen = 0
         self._warned_silent_mic = False
         self._btn.config(text="Stop Recording", bg=BTN_STOP, activebackground=BTN_STOP)
         self._set_status("Recording")
-        mic, speaker = device_names(self.settings["microphone"])
-        self._log(f"Started at {started.strftime('%H:%M:%S')}  (mic: {mic}; system: {speaker})")
+        mic, system = device_names(s["microphone"], s["system_audio"])
+        self._log(f"Started at {started.strftime('%H:%M:%S')}  (mic: {mic}; system: {system})")
+        self._update_tray("recording")
         self._tick()
 
     def _stop(self):
@@ -282,7 +439,10 @@ class App:
         Returns to the idle state immediately so a new recording can begin
         right away, even while previous recordings are still transcribing.
         """
+        if not self._recording:
+            return
         self._recording = False
+        self._trigger_app = None
         if self._timer_id:
             self.root.after_cancel(self._timer_id)
             self._timer_id = None
@@ -298,6 +458,7 @@ class App:
 
         self._btn.config(text="Start Recording", bg=BTN_START, activebackground=BTN_START)
         self._set_status("Ready")
+        self._update_tray()
         self._refresh_status()
         threading.Thread(target=self._finalize, args=(recorder, wav), daemon=True).start()
 
@@ -432,6 +593,7 @@ class App:
         mm, ss = divmod(elapsed, 60)
         self._timer_var.set(f"{mm:02d}:{ss:02d}")
         self.root.title(f"● REC {mm:02d}:{ss:02d} - {TITLE}")   # visible in the taskbar
+        self._update_tray(f"recording {mm:02d}:{ss:02d}")
 
         for err in self._recorder.errors[self._errors_seen:]:
             self._log(f"Not recording {err}")
@@ -439,7 +601,7 @@ class App:
         if not self._warned_silent_mic and self._recorder.mic_is_digital_silence():
             self._warned_silent_mic = True
             self._log("WARNING: the microphone is sending pure silence (muted or not "
-                      "connected?). Check Windows' default input, or set 'microphone' "
+                      "connected?). Check your default input, or choose a microphone "
                       "in Settings.")
 
         timeout = self.settings["silence_timeout"]
@@ -464,12 +626,22 @@ class App:
         self._pending_btn.config(
             text=f"Process pending ({waiting})" if waiting else "Process pending")
 
-    def _log(self, msg: str):
-        ts = datetime.now().strftime("%H:%M:%S")
-        self._log_box.config(state=tk.NORMAL)
-        self._log_box.insert(tk.END, f"{ts}  {msg}\n")
-        self._log_box.see(tk.END)
-        self._log_box.config(state=tk.DISABLED)
+    def _log(self, msg: str, window: bool = True):
+        now = datetime.now()
+        if window:
+            self._log_box.config(state=tk.NORMAL)
+            self._log_box.insert(tk.END, f"{now:%H:%M:%S}  {msg}\n")
+            self._log_box.see(tk.END)
+            self._log_box.config(state=tk.DISABLED)
+        try:   # also keep a log file for troubleshooting (one older copy is kept)
+            path = config.log_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists() and path.stat().st_size > 1_000_000:
+                path.replace(path.with_name(path.name + ".1"))
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(f"{now:%Y-%m-%d %H:%M:%S}  {msg}\n")
+        except OSError:
+            pass
 
     def _log_from_thread(self, msg: str):
         self.root.after(0, lambda: self._log(msg))
@@ -488,7 +660,7 @@ class App:
         try:
             out = self._output_dir()
             out.mkdir(parents=True, exist_ok=True)
-            os.startfile(str(out))   # Windows: open in Explorer
+            osutil.open_path(out)
         except Exception as exc:
             self._log(f"Could not open folder: {exc}")
 
@@ -504,13 +676,15 @@ class App:
         if active:
             busy.append(f"{active} file(s) are being processed")
 
-        if busy and not messagebox.askokcancel(
-            "Quit Meeting Recorder?",
-            "Currently " + " and ".join(busy) + ".\n\n"
-            "Recordings are saved to disk as you go, so nothing is lost - you can "
-            "finish unprocessed files later with 'Process pending'.\n\nQuit now?",
-        ):
-            return
+        if busy:
+            self._show_window()
+            if not messagebox.askokcancel(
+                "Quit Meeting Recorder?",
+                "Currently " + " and ".join(busy) + ".\n\n"
+                "Recordings are saved to disk as you go, so nothing is lost - you can "
+                "finish unprocessed files later with 'Process pending'.\n\nQuit now?",
+            ):
+                return
 
         # Close an in-progress recording so it survives as a pending .wav.
         if self._recording and self._recorder:
@@ -519,20 +693,29 @@ class App:
                 self.root.after_cancel(self._timer_id)
             if not self._recorder.stop() and self._recording_wav:
                 self._recording_wav.unlink(missing_ok=True)
-        if self._hotkey:
-            self._hotkey.stop()
+        for closer in (self._hotkey, self._tray, self._watcher):
+            if closer is not None:
+                closer.stop()
+        self._close_prompt()
         self.root.destroy()
 
 
 # -- Entry point -----------------------------------------------------------
+def set_window_icon(root: tk.Tk) -> None:
+    """The app icon for the main window and every dialog it opens."""
+    try:
+        if osutil.WINDOWS and (_HERE / "icon.ico").exists():
+            root.iconbitmap(default=str(_HERE / "icon.ico"))
+        elif LOGO.exists():
+            root._icon_image = tk.PhotoImage(file=str(LOGO))   # keep a reference
+            root.iconphoto(True, root._icon_image)
+    except Exception:
+        pass
+
+
 def main():
     root = tk.Tk()
     root.geometry("420x470")
-    icon = _HERE / "icon.ico"
-    if icon.exists():
-        try:
-            root.iconbitmap(str(icon))
-        except Exception:
-            pass
+    set_window_icon(root)
     App(root)
     root.mainloop()

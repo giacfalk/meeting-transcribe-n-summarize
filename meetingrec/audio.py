@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from .config import SAMPLE_RATE
+from .osutil import MACOS
 
 MIC, SYSTEM = 0, 1          # channel indices in the stereo WAV
 _CHANNEL_NAMES = ("microphone", "system audio")
@@ -48,31 +49,55 @@ def find_microphone(name: str = ""):
     return sc.default_microphone()
 
 
-def device_names(microphone: str = "") -> tuple[str, str]:
-    """(microphone, speaker) names for the log, '?' where unavailable."""
-    try:
-        mic = find_microphone(microphone).name
-    except Exception:
-        mic = "?"
-    try:
-        speaker = _soundcard().default_speaker().name
-    except Exception:
-        speaker = "?"
-    return mic, speaker
+def find_system_source(name: str = ""):
+    """Where "others" come from: the default output's loopback, or a named device.
+
+    A name may match a loopback device or an ordinary input, such as a virtual
+    device like BlackHole on macOS that other apps' audio is routed into.
+    """
+    sc = _soundcard()
+    if name:
+        devs = [d for d in sc.all_microphones(include_loopback=True)
+                if name.lower() in d.name.lower()]
+        if not devs:
+            raise RuntimeError(f"no input or loopback device matching '{name}'")
+        return next((d for d in devs if d.isloopback), devs[0])
+    devs = [d for d in sc.all_microphones(include_loopback=True) if d.isloopback]
+    if not devs:
+        if MACOS:
+            raise RuntimeError("macOS can't capture system audio by itself; see "
+                               "'System audio on macOS' in the README")
+        raise RuntimeError("no loopback device found")
+    default_name = sc.default_speaker().name
+    return next((d for d in devs if default_name in d.name), devs[0])
+
+
+def list_devices() -> tuple[list[str], list[str]]:
+    """(microphones, system-audio sources) by name, for the settings dialog."""
+    sc = _soundcard()
+    mics = [m.name for m in sc.all_microphones()]
+    loopbacks = [d.name for d in sc.all_microphones(include_loopback=True) if d.isloopback]
+    return mics, loopbacks + [m for m in mics if m not in loopbacks]
+
+
+def device_names(microphone: str = "", system_audio: str = "") -> tuple[str, str]:
+    """(microphone, system audio) device names for the log, '?' where unavailable."""
+    names = []
+    for find, name in ((find_microphone, microphone), (find_system_source, system_audio)):
+        try:
+            names.append(find(name).name)
+        except Exception:
+            names.append("?")
+    return names[0], names[1]
 
 
 def open_microphone(sample_rate: int, name: str = ""):
     return find_microphone(name).recorder(samplerate=sample_rate, channels=1)
 
 
-def open_default_loopback(sample_rate: int):
-    sc = _soundcard()
-    devs = [m for m in sc.all_microphones(include_loopback=True) if m.isloopback]
-    if not devs:
-        raise RuntimeError("no loopback device found")
-    default_name = sc.default_speaker().name
-    dev = next((d for d in devs if default_name in d.name), devs[0])
-    return dev.recorder(samplerate=sample_rate, channels=2)
+def open_system_audio(sample_rate: int, name: str = ""):
+    dev = find_system_source(name)
+    return dev.recorder(samplerate=sample_rate, channels=min(2, max(1, dev.channels)))
 
 
 def rms(samples: np.ndarray) -> float:
@@ -187,12 +212,13 @@ class DualChannelRecorder:
     _MAX_SKEW_SECONDS = 2.0
 
     def __init__(self, path: Path, sample_rate: int = SAMPLE_RATE,
-                 silence_threshold: float = 0.01, microphone: str = "", sources=None):
+                 silence_threshold: float = 0.01, microphone: str = "",
+                 system_audio: str = "", sources=None):
         self.path = path
         self.sample_rate = sample_rate
         self.silence_threshold = silence_threshold
         self._sources = sources or (functools.partial(open_microphone, name=microphone),
-                                    open_default_loopback)
+                                    functools.partial(open_system_audio, name=system_audio))
         self._bufs: tuple[list, list] = ([], [])
         self._buffered = [0, 0]
         self._alive = [False, False]

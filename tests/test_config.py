@@ -55,7 +55,21 @@ def test_update_setting_keeps_other_keys(tmp_path):
 
 
 def test_output_dir_default_and_override(tmp_path, monkeypatch):
-    monkeypatch.setenv("OneDrive", str(tmp_path / "od"))
-    assert config.output_dir({"output_dir": ""}) == (
-        tmp_path / "od" / "Documents" / "Meeting Recorder" / "recordings")
+    monkeypatch.setattr(config, "default_output_dir", lambda: tmp_path / "default")
+    assert config.output_dir({"output_dir": ""}) == tmp_path / "default"
     assert config.output_dir({"output_dir": str(tmp_path / "x")}) == tmp_path / "x"
+
+
+def test_defaults_are_copied():
+    a = config.defaults()
+    a["meeting_apps"].append("my-app")
+    assert "my-app" not in config.DEFAULTS["meeting_apps"]
+
+
+def test_meeting_apps_must_be_a_list_of_strings(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"meeting_apps": ["zoom", 3]}), encoding="utf-8")
+    settings, warnings = config.load_settings(path)
+    assert settings["meeting_apps"] == config.MEETING_APPS and len(warnings) == 1
+    path.write_text(json.dumps({"meeting_apps": ["zoom"]}), encoding="utf-8")
+    assert config.load_settings(path)[0]["meeting_apps"] == ["zoom"]

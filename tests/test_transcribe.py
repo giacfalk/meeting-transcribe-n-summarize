@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import sys
 
@@ -123,7 +124,12 @@ def test_labels_off_mixes_and_v1_mono_files_still_work(tmp_path):
 
 # -- Real transcription (downloads the ~75 MB "tiny" model) ----------------
 def _speak(text: str, path) -> bool:
-    """Synthesize speech with Windows' built-in voices; False if unavailable."""
+    """Synthesize speech with the OS's built-in voices; False if unavailable."""
+    if sys.platform == "darwin" and shutil.which("say"):
+        result = subprocess.run(["say", "-o", str(path), "--file-format=WAVE",
+                                 "--data-format=LEI16@16000", text],
+                                capture_output=True, timeout=60)
+        return result.returncode == 0 and path.exists()
     if sys.platform != "win32":
         return False
     script = (
