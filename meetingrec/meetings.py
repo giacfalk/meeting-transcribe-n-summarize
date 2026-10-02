@@ -14,7 +14,7 @@ import re
 import subprocess
 import sys
 import threading
-from pathlib import Path
+from pathlib import PureWindowsPath
 
 from .osutil import LINUX, WINDOWS
 
@@ -64,7 +64,7 @@ def _windows_entries():
 def _windows_app_name(entry: str, packaged: bool) -> str:
     if packaged:   # "MSTeams_8wekyb3d8bbwe" -> "MSTeams"
         return entry.split("_")[0]
-    return Path(entry.replace("#", "\\")).stem   # "C:#...#Zoom.exe" -> "Zoom"
+    return PureWindowsPath(entry.replace("#", "\\")).stem   # "C:#...#Zoom.exe" -> "Zoom"
 
 
 def _windows_in_use(entries, own_exes=()) -> set[str]:

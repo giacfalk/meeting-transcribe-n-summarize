@@ -57,7 +57,7 @@ class App:
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         if osutil.MACOS:
-            self.root.createcommand("tk::mac::Quit", self._on_close)
+            self.root.tk.createcommand("tk::mac::Quit", self._on_close)   # Cmd+Q
 
         self.settings, setting_warnings = config.load_settings()
         self._settings_mtime = self._mtime()

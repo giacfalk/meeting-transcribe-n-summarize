@@ -74,7 +74,10 @@ class GlobalHotkey:
 
     def stop(self) -> None:
         if self._listener is not None:
-            self._listener.stop()
+            try:
+                self._listener.stop()
+            except Exception:   # the listener thread may already have died
+                pass
             self._listener = None
         if self._thread_id:
             ctypes.windll.user32.PostThreadMessageW(self._thread_id, _WM_QUIT, 0, 0)
@@ -87,12 +90,22 @@ class GlobalHotkey:
             self.error = f"needs the 'pynput' package ({exc})"
             return False
         try:
-            self._listener = keyboard.GlobalHotKeys({to_pynput(self.spec): self._callback})
-            self._listener.start()
+            listener = keyboard.GlobalHotKeys({to_pynput(self.spec): self._callback})
+            listener.start()
         except Exception as exc:
             self.error = str(exc)
-            self._listener = None
             return False
+        # pynput's wait() never returns if its thread dies first (e.g. no X11 RECORD
+        # extension), so wait on a helper thread with a timeout.
+        waiter = threading.Thread(target=listener.wait, daemon=True)
+        waiter.start()
+        waiter.join(timeout=3)
+        if waiter.is_alive() or not listener.is_alive():
+            self.error = "the keyboard listener could not start (Linux needs an X11 session)"
+            self._listener = listener
+            self.stop()
+            return False
+        self._listener = listener
         return True
 
     def _run(self) -> None:
