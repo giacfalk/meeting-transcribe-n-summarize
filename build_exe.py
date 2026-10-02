@@ -1,79 +1,76 @@
 #!/usr/bin/env python3
 """
-Build script -- run once to produce MeetingRecorder.exe
-Output: dist/MeetingRecorder/MeetingRecorder.exe  (pin this to taskbar)
+Build script -- produces dist/MeetingRecorder/MeetingRecorder.exe (pin this to taskbar)
+
+    python build_exe.py            draw the icons, then package with PyInstaller
+    python build_exe.py --zip      ...and zip the bundle into release/ for publishing
+    python build_exe.py --icons    only redraw icon.ico and assets/logo.png
 """
 
+import hashlib
 import os
+import re
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).parent
 
 
+def version() -> str:
+    text = (HERE / "meetingrec" / "__init__.py").read_text(encoding="utf-8")
+    return re.search(r'__version__\s*=\s*"([^"]+)"', text).group(1)
+
+
 # -- Icon creation -----------------------------------------------------------
+def draw_logo(size: int):
+    """Red rounded square with a white studio microphone.
+
+    Drawn once at 1024 px and downscaled, so every size is smooth.
+    """
+    from PIL import Image, ImageDraw
+
+    S = 1024
+    grad = Image.new("RGBA", (S, S))
+    top, bottom = (229, 57, 53), (183, 28, 28)
+    for y in range(S):
+        t = y / (S - 1)
+        color = tuple(round(a + (b - a) * t) for a, b in zip(top, bottom, strict=True)) + (255,)
+        grad.paste(color, (0, y, S, y + 1))
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([40, 40, S - 41, S - 41], radius=220, fill=255)
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    img.paste(grad, (0, 0), mask)
+
+    d, cx, white = ImageDraw.Draw(img), S // 2, (255, 255, 255, 255)
+    d.rounded_rectangle([cx - 150, 160, cx + 150, 620], radius=150, fill=white)    # capsule
+    for y in (300, 370, 440):                                                      # grille
+        d.rounded_rectangle([cx - 88, y - 11, cx + 88, y + 11], radius=11, fill=(198, 40, 40, 255))
+    d.arc([cx - 230, 240, cx + 230, 700], start=0, end=180, fill=white, width=56)  # holder
+    d.rectangle([cx - 28, 690, cx + 28, 820], fill=white)                          # stem
+    d.rounded_rectangle([cx - 170, 812, cx + 170, 868], radius=28, fill=white)     # base
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def make_icon() -> Path:
     try:
-        from PIL import Image, ImageDraw
+        import PIL  # noqa: F401
     except ImportError:
         print("Installing Pillow...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow", "-q"])
-        from PIL import Image, ImageDraw
 
-    sizes = [256, 64, 48, 32, 16]
-    frames = []
-
-    for sz in sizes:
-        img = Image.new("RGBA", (sz, sz), (0, 0, 0, 0))
-        d   = ImageDraw.Draw(img)
-        cx  = sz // 2
-
-        # Red rounded-square background
-        pad = max(1, sz // 14)
-        d.rounded_rectangle(
-            [pad, pad, sz - pad - 1, sz - pad - 1],
-            radius=sz // 5, fill="#c62828"
-        )
-
-        # Mic capsule (white rounded rectangle)
-        mw = max(4,  sz * 22 // 64)
-        mh = max(6,  sz * 30 // 64)
-        my = max(2,  sz * 13 // 64)
-        d.rounded_rectangle(
-            [cx - mw // 2, my, cx + mw // 2, my + mh],
-            radius=mw // 2, fill="white"
-        )
-
-        # Stand arc
-        am  = max(2, sz * 10 // 64)
-        ay  = my + mh - max(1, sz // 20)
-        alw = max(2, sz // 22)
-        d.arc(
-            [am, ay, sz - am, ay + sz * 10 // 32],
-            start=180, end=0, fill="white", width=alw
-        )
-
-        # Vertical post
-        lw = max(1, sz // 44)
-        lt = ay + sz * 10 // 32 // 2
-        lb = lt + sz * 9 // 64
-        d.rectangle([cx - lw, lt, cx + lw, lb], fill="white")
-
-        # Base bar
-        bw = sz * 18 // 64
-        bh = max(2, sz // 30)
-        d.rectangle([cx - bw // 2, lb, cx + bw // 2, lb + bh], fill="white")
-
-        frames.append(img)
-
+    sizes = [256, 128, 64, 48, 32, 24, 16]
+    frames = [draw_logo(s) for s in sizes]
     out = HERE / "icon.ico"
-    frames[0].save(
-        str(out), format="ICO",
-        sizes=[(s, s) for s in sizes],
-        append_images=frames[1:],
-    )
+    frames[0].save(str(out), format="ICO", sizes=[(s, s) for s in sizes],
+                   append_images=frames[1:])
     print(f"  Created: {out.name}")
+
+    logo = HERE / "assets" / "logo.png"
+    logo.parent.mkdir(exist_ok=True)
+    draw_logo(256).save(str(logo), optimize=True)
+    print(f"  Created: assets/{logo.name}")
     return out
 
 
@@ -104,8 +101,8 @@ def build(icon: Path):
         "--collect-all", "faster_whisper",
         "--collect-all", "ctranslate2",
         "--collect-all", "onnxruntime",
-        # NB: summarization shells out to the external `claude` CLI at runtime,
-        # so no Anthropic SDK needs to be bundled here.
+        # The Claude CLI and Ollama backends are external programs; the optional
+        # Anthropic API backend is bundled when `anthropic` is installed.
         str(HERE / "meeting_recorder.py"),
     ]
 
@@ -121,16 +118,36 @@ def build(icon: Path):
         print(f"\n  Done!  {exe}")
         print("\n  To pin to taskbar:")
         print(f"    1. Open:  {exe.parent}")
-        print(f"    2. Right-click MeetingRecorder.exe -> 'Pin to taskbar'")
+        print("    2. Right-click MeetingRecorder.exe -> 'Pin to taskbar'")
     else:
         print("\n  Build finished -- check dist/MeetingRecorder/")
 
 
+def make_zip() -> Path:
+    """Zip dist/MeetingRecorder into release/ and print its SHA-256."""
+    src = HERE / "dist" / "MeetingRecorder"
+    out = HERE / "release" / f"MeetingRecorder-v{version()}-windows-x64.zip"
+    out.parent.mkdir(exist_ok=True)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for f in sorted(src.rglob("*")):
+            if f.is_file():
+                z.write(f, Path("MeetingRecorder") / f.relative_to(src))
+    digest = hashlib.sha256(out.read_bytes()).hexdigest()
+    (out.parent / f"{out.name}.sha256").write_text(f"{digest}  {out.name}\n")
+    print(f"\n  Zipped: {out}  ({out.stat().st_size / 1e6:.1f} MB)\n  SHA-256: {digest}")
+    return out
+
+
 # -- Main --------------------------------------------------------------------
 if __name__ == "__main__":
-    print("=== Meeting Recorder -- Build ===\n")
-    print("Step 1/2: creating icon...")
+    print(f"=== Meeting Recorder {version()} -- Build ===\n")
+    print("Step 1: creating icons...")
     icon = make_icon()
-    print("Step 2/2: packaging with PyInstaller...")
+    if "--icons" in sys.argv:
+        sys.exit(0)
+    print("Step 2: packaging with PyInstaller...")
     build(icon)
+    if "--zip" in sys.argv:
+        print("Step 3: zipping the release...")
+        make_zip()
     print("\nAll done.")
