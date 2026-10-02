@@ -31,7 +31,7 @@ jobs:
           cache: pip
       - name: Linux - virtual display and audio devices
         if: runner.os == 'Linux'
-        run: .github/linux-audio.sh
+        run: sh .github/linux-audio.sh
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Lint
@@ -68,7 +68,7 @@ jobs:
           cache-dependency-path: requirements*.txt
       - name: Linux - virtual display and audio devices
         if: runner.os == 'Linux'
-        run: .github/linux-audio.sh
+        run: sh .github/linux-audio.sh
       - name: Install pinned build dependencies
         shell: bash
         run: |
