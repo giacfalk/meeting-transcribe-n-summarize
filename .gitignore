@@ -1,0 +1,21 @@
+# Build output (PyInstaller)
+build/
+dist/
+*.spec
+release/
+build.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local data -- never commit recordings, transcripts or summaries
+recordings/
+*.wav
+
+# Editor / tooling
+.claude/settings.local.json
+.vscode/
+.idea/

@@ -1,0 +1,15 @@
+# Core dependencies
+soundcard>=0.4.2        # WASAPI loopback + microphone recording on Windows
+soundfile>=0.12.1       # Write WAV files
+numpy>=1.24
+
+# Transcription (pick one -- faster-whisper is preferred)
+faster-whisper>=1.0.0   # Faster, lower memory; downloads model on first run
+# openai-whisper        # Alternative: OpenAI's original Whisper
+
+# Summarization is done via the external `claude` CLI (Claude Code), which uses
+# your existing Claude login. No Python package or API key is required.
+
+# Building the .exe (only needed for build_exe.py)
+# pyinstaller>=6.0
+# Pillow                # used to draw icon.ico
