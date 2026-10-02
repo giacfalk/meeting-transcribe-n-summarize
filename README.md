@@ -5,7 +5,7 @@
 <h1 align="center">Meeting Recorder</h1>
 
 <p align="center">
-  One-button Windows app that records your meetings, transcribes them locally,<br>
+  One-button app that records your meetings, transcribes them locally,<br>
   tells you who said what, and writes the summary for you.
 </p>
 
@@ -14,16 +14,19 @@
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/giacfalk/meeting-transcribe-n-summarize"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/giacfalk/meeting-transcribe-n-summarize/total"></a>
   <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/giacfalk/meeting-transcribe-n-summarize"></a>
-  <img alt="Platform: Windows 10 | 11" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6">
+  <img alt="Platforms: Windows | macOS | Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D6">
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
 </p>
 
 ---
 
 - **One button.** Click *Start Recording*, then *Stop*. That's all you have to do.
-- **Records both sides of a call.** It captures your **microphone** and the **system audio**
-  (WASAPI loopback), so it works with Zoom, Teams, Meet, Webex or any other app. There are
-  no plugins, and no bot joins your call.
+- **Records both sides of a call.** It captures your **microphone** and the **system audio**,
+  so it works with Zoom, Teams, Meet, Webex or any other app. There are no plugins, and no
+  bot joins your call.
+- **Offers to record when a call starts.** When Zoom, Teams, Meet in your browser and so on
+  start using the microphone, a small prompt asks whether to record. It never records by
+  itself.
 - **Who said what.** Your voice and everyone else's are recorded on separate channels, so
   every line of the transcript is labelled **Me** or **Others**.
 - **Local transcription** with [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
@@ -34,38 +37,45 @@
   key), the Anthropic API, or a **fully local model through [Ollama](https://ollama.com)**.
 - **Crash-safe.** Audio is written to disk while you record, so a crash or power cut loses
   only the last couple of seconds. *Process pending* finishes anything left unfinished.
-- **Doesn't block you.** Transcripts and summaries are made in the background, so you can
-  start the next recording right away.
-- **Optional extras:** a global start/stop hotkey, `.srt` subtitles, GPU transcription, and
-  auto-stop after a configurable stretch of silence.
+- **Stays out of your way.** Transcripts and summaries are made in the background, and a
+  tray icon lets you start and stop recording without opening the window.
+- **Optional extras:** a settings window, a global start/stop hotkey, `.srt` subtitles,
+  GPU transcription, and auto-stop after a configurable stretch of silence.
 
 ## Install
 
-### Option A: download the Windows build (no Python needed)
+Download the latest version from the
+[releases page](https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest).
 
-1. Download `MeetingRecorder-vX.Y.Z-windows-x64.zip` from the
-   [latest release](https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest).
-2. Unzip it to a short path such as `C:\Apps\`. Very deep folders can hit Windows'
-   260-character path limit.
-3. Run `MeetingRecorder.exe`. Optionally right-click it and choose *Pin to taskbar*.
+| System | Download | Then |
+|---|---|---|
+| **Windows 10/11** | `…-windows-x64-setup.exe` | Run the installer. It installs for your user only, with no admin rights needed, and adds a Start-menu entry. |
+| Windows, portable | `…-windows-x64.zip` | Unzip to a short path such as `C:\Apps\` (very deep folders can hit Windows' 260-character path limit) and run `MeetingRecorder.exe`. |
+| macOS (Apple Silicon), *experimental* | `…-macos-arm64.zip` | Unzip and move *Meeting Recorder* to *Applications*. The first time, right-click it and choose **Open**. See [System audio on macOS](#system-audio-on-macos). |
+| Linux x64, *experimental* | `…-linux-x64.tar.gz` | `tar xzf …` then run `MeetingRecorder/MeetingRecorder`. Run `MeetingRecorder/install.sh` to add it to your application menu. Needs PulseAudio or PipeWire. |
 
-> The executable is not code-signed, so Windows SmartScreen may show
-> *"Windows protected your PC"*. Click **More info → Run anyway**. Every release is built
-> from source by [GitHub Actions](https://github.com/giacfalk/meeting-transcribe-n-summarize/actions)
-> and comes with a SHA-256 checksum. You can also build it yourself (see below).
+> **The builds are not code-signed** ([why](docs/code-signing.md)).
+> - On Windows, SmartScreen may say *"Windows protected your PC"*: click **More info → Run anyway**.
+> - On macOS, Gatekeeper asks you to confirm the first launch.
+>
+> Every release is built from source by
+> [GitHub Actions](https://github.com/giacfalk/meeting-transcribe-n-summarize/actions), and each
+> file comes with a SHA-256 checksum.
 
-### Option B: run from source
+### Run from source
 
-Requires Windows 10/11 and Python 3.10 or newer.
+Requires Python 3.10 or newer.
 
-```powershell
+```sh
 git clone https://github.com/giacfalk/meeting-transcribe-n-summarize.git
 cd meeting-transcribe-n-summarize
 pip install -r requirements.txt
 python meeting_recorder.py
 ```
 
-You can also double-click `Start Meeting Recorder.bat`.
+On Windows you can also double-click `Start Meeting Recorder.bat`. On Linux, Tk and the
+PulseAudio client library must be installed (for example
+`sudo apt install python3-tk libpulse0`).
 
 ## Usage
 
@@ -75,16 +85,34 @@ You can also double-click `Start Meeting Recorder.bat`.
 | **Model** | Whisper model: `tiny`, `base` (default), `small`, `medium`, `large-v3-turbo`, `large-v3`, `large-v2`. Larger models are more accurate but slower. `large-v3-turbo` is the best accuracy for the speed. |
 | **Always on top** | Keep the small window above other windows during a call. |
 | **Process pending** | Transcribe any leftover recordings and summarize transcripts that don't have a summary yet. |
-| **Open folder** | Open the output folder in Explorer. |
-| **Settings** | Open `settings.json` in Notepad (see [Configuration](#configuration)). |
+| **Open folder** | Open the output folder. |
+| **Settings** | Open the settings window (see [Configuration](#configuration)). |
+| **Tray icon** (Windows, Linux) | Click it to show the window. Its menu has *Start/Stop recording*, *Process pending*, *Open folder* and *Quit*. A red dot shows while recording. |
 
 The first time you use a model, it is downloaded from Hugging Face (about 150 MB for
 `base`, 1.6 GB for `large-v3-turbo`).
 
+### Offer to record when a call starts
+
+When one of the *meeting apps* starts using the microphone, a small prompt appears in the
+corner of the screen, and in a notification if the tray icon is on: *"Zoom is using the
+microphone. Record this meeting?"*
+- **Record** starts recording.
+- **Not now** (or ignoring it for a minute) leaves that call alone.
+- When the app releases the microphone, you're asked whether to stop recording.
+
+The default list covers Teams, Zoom, Webex, Skype, Slack, Discord, WhatsApp, Signal,
+FaceTime and the common browsers, for Google Meet and other web calls. Change it in
+Settings, or use `*` to be asked for every app.
+- **Windows:** this uses the per-app microphone usage that Windows already tracks (the mic
+  icon in the taskbar).
+- **Linux:** it uses the PulseAudio/PipeWire recording streams.
+- **macOS:** not available yet.
+
 ### Output
 
-Files go to `Documents\Meeting Recorder\recordings\`. If OneDrive is set up, that's the
-OneDrive-synced Documents folder.
+Files go to `Documents/Meeting Recorder/recordings/`. On Windows with OneDrive set up,
+that's the OneDrive-synced Documents folder.
 
 ```
 Meeting Recorder/recordings/
@@ -114,23 +142,48 @@ whatever your computer plays (the other participants). Each channel is transcrib
 own and the lines are merged by time. **"Others" means everyone else on the call together**,
 so it can't tell remote participants apart from each other.
 
-When a recording starts, the log shows which microphone and speaker are in use. If the
-microphone delivers pure digital silence (muted, or a headset jack with nothing plugged in),
-the app warns you after a few seconds, so you don't lose your side of the meeting.
+When a recording starts, the log shows which microphone and system-audio device are in
+use. If the microphone delivers pure digital silence (muted, or a headset jack with nothing
+plugged in), the app warns you after a few seconds, so you don't lose your side of the
+meeting.
 
 A channel that never gets louder than `silence_threshold` (for example a mic that only
 hears faint room noise) is skipped. Otherwise Whisper tends to invent sentences from noise.
 
 If you use speakers instead of headphones, your microphone also picks up the other
 participants. The app detects these echoes (mic lines that repeat what the remote side said
-at the same moment) and drops them. Headphones still give the cleanest result. Set
-`"speaker_labels": false` to get a single unlabelled transcript instead.
+at the same moment) and drops them. Headphones still give the cleanest result. Turn off
+*Label speakers* to get a single unlabelled transcript instead.
+
+### System audio on macOS
+
+macOS can't record other apps' audio by itself, so out of the box the app records your
+microphone only, and the "Others" side stays empty. To capture the other participants, use
+a virtual audio device such as [BlackHole](https://github.com/ExistentialAudio/BlackHole)
+(free):
+
+1. Install BlackHole 2ch.
+2. In *Audio MIDI Setup*, create a **Multi-Output Device** that includes your speakers or
+   headphones *and* BlackHole, and select it as the sound output. You keep hearing the call,
+   and BlackHole receives a copy.
+3. In Meeting Recorder, go to **Settings → Audio → System audio** and choose
+   *BlackHole 2ch*.
+
+The first recording asks for microphone permission.
 
 ## Configuration
 
-Click **Settings**, or edit `%APPDATA%\MeetingRecorder\settings.json` directly. The file
-is created with every option on first launch. Changes apply as soon as you switch back to
-the app window.
+Click **Settings** for the everyday options. *Edit settings.json…* in that window opens the
+file itself, which holds every option:
+
+| System | Settings file |
+|---|---|
+| Windows | `%APPDATA%\MeetingRecorder\settings.json` |
+| macOS | `~/Library/Application Support/MeetingRecorder/settings.json` |
+| Linux | `~/.config/MeetingRecorder/settings.json` |
+
+Changes apply as soon as you save, or when you switch back to the app window after editing
+the file.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -138,19 +191,27 @@ the app window.
 | `whisper_model` | `"base"` | Whisper model (any [faster-whisper model name](https://github.com/SYSTRAN/faster-whisper) works) |
 | `device` | `"cpu"` | `"cpu"`, or `"auto"` / `"cuda"` to use an NVIDIA GPU (needs CUDA 12 + cuDNN 9; falls back to the CPU) |
 | `language` | `""` | `""` = auto-detect, or a language code such as `"en"`, `"it"`, `"de"` |
-| `microphone` | `""` | `""` = the Windows default input, or part of a device name, e.g. `"Headset"` or `"Microphone Array"` |
+| `microphone` | `""` | `""` = the system default input, or part of a device name, e.g. `"Headset"` |
+| `system_audio` | `""` | `""` = loopback of the default output, or part of the name of a device to record as "others" (e.g. `"BlackHole"`) |
 | `speaker_labels` | `true` | Label lines with `mic_label` / `others_label` |
 | `mic_label` / `others_label` | `"Me"` / `"Others"` | The labels used in transcripts |
 | `keep_audio` | `false` | Keep the `.wav` next to the transcript |
 | `write_srt` | `false` | Also write an `.srt` subtitle file |
 | `silence_timeout` | `120` | Seconds of silence before recording stops itself (`0` = never) |
 | `silence_threshold` | `0.01` | Audio level (0–1) counted as silence. Used for auto-stop, and a channel that never gets louder than this isn't transcribed. |
-| `hotkey` | `""` | Global start/stop shortcut, e.g. `"ctrl+alt+r"` (works even when the app is minimized) |
+| `hotkey` | `""` | Global start/stop shortcut, e.g. `"ctrl+alt+r"`. It works even when the app is minimized. On Linux it needs X11; on macOS it needs Accessibility permission. |
+| `meeting_prompt` | `true` | Offer to record when a meeting app starts using the microphone |
+| `meeting_apps` | *(list)* | Parts of app names that count as meeting apps (`"*"` = any app) |
+| `tray_icon` | `true` | Show the tray icon (Windows, Linux) |
+| `minimize_to_tray` | `false` | Minimizing hides the window; bring it back from the tray icon |
 | `summary_backend` | `"claude-cli"` | `"claude-cli"`, `"anthropic-api"`, `"ollama"` or `"none"` |
 | `summary_model` | `""` | Model for the summary backend (`""` = its default; required for Ollama) |
 | `summary_prompt` | `""` | Your own summary instructions (`""` = the built-in prompt) |
 | `anthropic_api_key` | `""` | API key for `anthropic-api`. The `ANTHROPIC_API_KEY` environment variable is better. |
 | `ollama_url` | `"http://localhost:11434"` | Where Ollama is running |
+
+The app also keeps a log (`meetingrec.log`, next to `settings.json`) of what it did. It
+contains file and device names, but no transcript text. Attach it when you report a problem.
 
 ### Summary backends
 
@@ -178,6 +239,7 @@ when you click *Process pending*.
 - **Summaries depend on the backend** (see the table above). With `claude-cli` or
   `anthropic-api`, the transcript text is sent to Anthropic under your account's data-usage
   terms. Choose `ollama` or `none` if your meetings must not leave your machine.
+- **Call detection** only reads *which* apps are using the microphone. It never listens.
 
 ## ⚠️ Recording consent
 
@@ -186,13 +248,28 @@ jurisdictions. Some require all parties to consent, and GDPR applies in the EU. 
 tell participants and get their consent before recording.** You are responsible for using
 this tool lawfully.
 
+## Platform support
+
+| | Windows | Linux | macOS |
+|---|---|---|---|
+| Recording (mic + system audio) | ✅ | ✅ PulseAudio / PipeWire | ✅ mic; system audio with BlackHole |
+| Transcription and summaries | ✅ | ✅ | ✅ |
+| Tray icon | ✅ | ✅ needs a tray (GNOME: the AppIndicator extension) | – (Dock icon) |
+| Offer to record when a call starts | ✅ | ✅ | – |
+| Global hotkey | ✅ | ✅ X11 only | ✅ needs Accessibility permission |
+| Release builds | ✅ installer + zip | *experimental* | *experimental* |
+
+Every platform is tested in CI. The Linux tests include real audio capture through
+PulseAudio, and each build is started as a smoke test. So far the Linux and macOS builds
+have only been tested in CI, not on a real desktop. Reports are very welcome.
+
 ## Development
 
-```powershell
+```sh
 python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt -r requirements-dev.txt
-.venv\Scripts\python -m pytest            # -m "not slow" skips the real-transcription test
-.venv\Scripts\python -m ruff check .
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt   # Windows: .venv\Scripts\python
+.venv/bin/python -m pytest            # -m "not slow" skips the real-transcription test
+.venv/bin/python -m ruff check .
 ```
 
 The code lives in [`meetingrec/`](meetingrec):
@@ -202,43 +279,49 @@ The code lives in [`meetingrec/`](meetingrec):
 | `audio.py` | Capture and the crash-safe stereo WAV writer |
 | `transcribe.py` | Whisper, speaker merging and echo removal |
 | `summarize.py` | The summary backends |
-| `config.py` | Settings |
-| `app.py` | The GUI |
+| `meetings.py` | Detecting which apps use the microphone |
+| `tray.py`, `hotkey.py` | Tray icon and global hotkey |
+| `settings_dialog.py`, `config.py` | Settings window and settings file |
+| `osutil.py` | The few things that differ between Windows, macOS and Linux |
+| `app.py` | The main window |
 
-### Building the .exe
+### Building
 
 Build inside a clean virtual environment. Packages left over in a global Python install
-(for example an old `setuptools`) can break PyInstaller. `requirements-build.txt` pins
-the exact versions used for releases.
+(for example an old `setuptools`) can break PyInstaller.
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements-build.txt
-.venv\Scripts\python build_exe.py --zip
+```sh
+python build_exe.py --zip              # all systems: bundle + release archive in release/
+python build_exe.py --zip --installer  # Windows: also the installer (needs Inno Setup 6)
 ```
 
-The output is `dist\MeetingRecorder\MeetingRecorder.exe`, a folder bundle for fast startup.
-`--zip` also writes the release zip and its checksum to `release\`.
+`requirements-build.txt` pins the exact versions used for the Windows release. The macOS
+and Linux builds use it as constraints.
 
 ### Releasing
 
 Bump `__version__` in `meetingrec/__init__.py`, update [CHANGELOG.md](CHANGELOG.md), then
 push a matching tag:
 
-```powershell
+```sh
 git tag v1.2.0
 git push origin v1.2.0
 ```
 
-CI tests and builds the exe, then attaches the zip to the GitHub release.
+CI then does the rest:
+1. Runs the tests on all three systems.
+2. Builds and smoke-tests each package. The Windows installer is also installed, started
+   and uninstalled.
+3. Publishes the release, with this version's changelog entry as the release notes.
+
+See [docs/code-signing.md](docs/code-signing.md) for signing the builds.
 
 ## Limitations and roadmap
 
-- Windows only for now (WASAPI loopback, Explorer integration). See the
-  [open issues](https://github.com/giacfalk/meeting-transcribe-n-summarize/issues) for
-  Linux support, a tray icon, and other ideas. Contributions are welcome.
 - "Others" covers every remote participant together. Telling individual remote voices
   apart would need a diarization model.
+- See the [open issues](https://github.com/giacfalk/meeting-transcribe-n-summarize/issues)
+  for what's planned. Contributions are welcome.
 
 ## License
 
@@ -248,6 +331,6 @@ This program is free software: you can redistribute it and/or modify it under th
 the GNU General Public License as published by the Free Software Foundation, either version 3
 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
 
-The Windows build bundles third-party components (Python, faster-whisper, CTranslate2,
-ONNX Runtime, soundcard, soundfile, NumPy, the Anthropic SDK, Tcl/Tk), each under its own
-license.
+The builds bundle third-party components (Python, faster-whisper, CTranslate2, ONNX
+Runtime, soundcard, soundfile, NumPy, the Anthropic SDK, pystray, Pillow, Tcl/Tk), each
+under its own license.

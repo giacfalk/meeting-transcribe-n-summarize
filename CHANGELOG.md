@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.2.0
+
+### New
+- **Windows installer.** `…-windows-x64-setup.exe` installs per user (no admin rights), adds
+  a Start-menu entry and an uninstaller, and upgrades earlier versions in place. The portable
+  zip is still available.
+- **Settings window.** *Settings* now opens a tabbed window with the everyday options
+  (model, language, devices, summaries, hotkey, call prompts, tray). It checks your input
+  and shows whether the chosen summary backend is ready. *Edit settings.json…* still opens
+  the file itself.
+- **Offer to record when a call starts.** When Teams, Zoom, Meet in a browser and so on
+  start using the microphone, a prompt asks whether to record, and asks again whether to
+  stop when the call ends. It never records by itself. This works on Windows and Linux; the
+  list of apps is configurable.
+- **Tray icon** (Windows, Linux) with *Start/Stop recording*, *Process pending*, *Open
+  folder* and *Quit*. A red dot shows while recording. Optionally, minimizing hides the
+  window to the tray.
+- **Linux support** (PulseAudio / PipeWire), with an *experimental* `linux-x64.tar.gz`
+  build and an `install.sh` that adds it to the application menu.
+- **macOS support** (*experimental* Apple Silicon build). It records the microphone; with
+  a virtual device such as BlackHole it also records the other participants.
+- A **`system_audio`** setting picks which device is recorded as "others".
+- The global **hotkey** now also works on Linux (X11) and macOS.
+- A **log file** (`meetingrec.log`, next to `settings.json`) for troubleshooting.
+
+### Fixes
+- Dialogs now show the app icon instead of Tk's default one.
+
+### Project
+- CI tests on Windows, Linux and macOS. The Linux tests record real audio through a
+  virtual PulseAudio device and check call detection. Each build is started as a smoke
+  test that reads the app's log, so a start-up error now fails the build. The Windows
+  installer is installed, started and uninstalled in CI.
+- PyInstaller 6.22, which handles the Tcl/Tk 9 used by newer Python builds.
+- [docs/code-signing.md](docs/code-signing.md) explains the options for signing the builds.
+
 ## 1.1.0
 
 ### New
