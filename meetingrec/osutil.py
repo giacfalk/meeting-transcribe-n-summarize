@@ -49,6 +49,24 @@ def documents_dir() -> Path:
     return home / "Documents"
 
 
+def set_dark_titlebar(window) -> None:
+    """Give a Tk window the dark Windows 11 title bar. No-op off Windows."""
+    if not WINDOWS:
+        return
+    try:
+        import ctypes
+        window.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        value = ctypes.c_int(1)
+        # DWMWA_USE_IMMERSIVE_DARK_MODE is 20; older Windows 10 builds used 19.
+        for attribute in (20, 19):
+            if ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)) == 0:
+                break
+    except Exception:
+        pass
+
+
 def open_path(path: Path) -> None:
     """Open a folder or file with the system's default app."""
     if WINDOWS:

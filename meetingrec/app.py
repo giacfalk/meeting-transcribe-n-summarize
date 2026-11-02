@@ -2,6 +2,7 @@
 
 import platform
 import queue
+import re
 import sys
 import threading
 import tkinter as tk
@@ -12,8 +13,16 @@ from tkinter import messagebox, scrolledtext, ttk
 from . import __version__, config, files, meetings, osutil, summarize, tray
 from .audio import DualChannelRecorder, device_names, repair_wav, soundcard_available
 from .hotkey import GlobalHotkey
+from .live import LiveTranscriber
 from .settings_dialog import SettingsDialog
-from .transcribe import BACKEND, Transcriber, format_transcript, to_srt, transcribe_recording
+from .transcribe import (
+    BACKEND,
+    Transcriber,
+    format_timestamp,
+    format_transcript,
+    to_srt,
+    transcribe_recording,
+)
 
 # -- Path resolution (works both in dev and when frozen by PyInstaller) --
 # PyInstaller 6 puts bundled data files in _internal/ (sys._MEIPASS), not next to the .exe.
@@ -23,19 +32,45 @@ else:
     _HERE = Path(__file__).resolve().parent.parent
 LOGO = _HERE / "assets" / "logo.png"
 
-# -- Look ------------------------------------------------------------------
-SANS, MONO  = osutil.FONTS
-BG          = "#1e1e2e"
-BTN_START   = "#4ade80"   # green
-BTN_STOP    = "#f87171"   # red
-BTN_SMALL   = "#313244"
-TEXT_MAIN   = "#cdd6f4"
-TEXT_DIM    = "#6c7086"
-FONT_BODY   = (SANS, 10)
-FONT_TIMER  = (SANS, 36, "bold")
-FONT_STATUS = (SANS, 11)
-FONT_LOG    = (MONO, 9)
-TITLE       = "Meeting Recorder"
+# -- Look (Catppuccin Mocha) -----------------------------------------------
+SANS, MONO   = osutil.FONTS
+BG           = "#1e1e2e"   # base
+BG_HEADER    = "#11111b"   # crust: the top strip
+BG_PANEL     = "#181825"   # mantle: text panels (transcript, notes, log)
+SURFACE      = "#313244"   # buttons / inputs
+SURFACE_HI   = "#45475a"   # hover
+ACCENT       = "#89b4fa"   # blue accent
+BTN_START    = "#a6e3a1"   # green
+BTN_STOP     = "#f38ba8"   # red
+TEXT_MAIN    = "#cdd6f4"   # primary text
+TEXT_SUB     = "#a6adc8"   # readable secondary text
+TEXT_DIM     = "#7f849c"   # faint labels / hints
+FONT_BODY    = (SANS, 10)
+FONT_TIMER   = (SANS, 40, "bold")
+FONT_STATUS  = (SANS, 10, "bold")
+FONT_SECTION = (SANS, 10, "bold")
+FONT_LOG     = (MONO, 9)
+TITLE        = "Meeting Recorder"
+
+# Clear, self-explaining names for the live_mode setting (main-window dropdown).
+LIVE_LABELS = {
+    "off":              "Off  (transcribe when I stop)",
+    "transcript":       "Live transcript",
+    "transcript+notes": "Live transcript + notes (on demand)",
+    "auto-notes":       "Live transcript + auto notes",
+}
+LIVE_MODE_BY_LABEL = {label: mode for mode, label in LIVE_LABELS.items()}
+# One-line explanation shown under the dropdown for the selected mode.
+LIVE_HINTS = {
+    "off":              "Nothing live. The transcript and summary are created when you "
+                        "press Stop.",
+    "transcript":       "A rough transcript appears below, live, as you talk. The clean "
+                        "transcript + summary are still made at Stop.",
+    "transcript+notes": "Live transcript below, plus a button to write running notes "
+                        "(key points, decisions, actions) whenever you want.",
+    "auto-notes":       "Live transcript below, with running notes that rewrite themselves "
+                        "automatically every few minutes.",
+}
 
 
 def make_button(parent, text, command, bg, fg, font, active_bg=None, **kw):
@@ -54,7 +89,8 @@ class App:
         self.root = root
         self.root.title(TITLE)
         self.root.configure(bg=BG)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
+        self.root.minsize(440, 520)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         if osutil.MACOS:
             self.root.tk.createcommand("tk::mac::Quit", self._on_close)   # Cmd+Q
@@ -80,6 +116,17 @@ class App:
         self._prompt_timer = None
         self._settings_win: SettingsDialog | None = None
         self._transcriber = Transcriber(log=self._log_from_thread)
+
+        # Live ("near real time") draft transcription, embedded in the main window.
+        self._live: LiveTranscriber | None = None
+        self._live_frame: tk.Frame | None = None
+        self._notes_frame: tk.Frame | None = None
+        self._live_text: scrolledtext.ScrolledText | None = None
+        self._live_notes: scrolledtext.ScrolledText | None = None
+        self._live_notes_btn = None
+        self._live_notes_running = False
+        self._live_notes_timer = None
+        self._live_has_text = False
 
         # Background work. Stopping a recording drops its .wav on this queue; one
         # worker thread transcribes (.wav) or summarizes (.txt) jobs one at a time,
@@ -121,74 +168,157 @@ class App:
     # ---- UI construction ------------------------------------------------
 
     def _build(self):
-        tk.Frame(self.root, bg=BG, height=20).pack()
+        self._setup_styles()
 
+        # ---- header strip -------------------------------------------------
+        header = tk.Frame(self.root, bg=BG_HEADER)
+        header.pack(fill=tk.X)
+        bar = tk.Frame(header, bg=BG_HEADER)
+        bar.pack(fill=tk.X, padx=16, pady=10)
+        tk.Label(bar, text="●", font=(SANS, 11), bg=BG_HEADER, fg=ACCENT).pack(side=tk.LEFT)
+        tk.Label(bar, text=TITLE, font=(SANS, 12, "bold"), bg=BG_HEADER,
+                 fg=TEXT_MAIN).pack(side=tk.LEFT, padx=(7, 0))
         self._status_var = tk.StringVar(value="Ready")
-        tk.Label(self.root, textvariable=self._status_var,
-                 font=FONT_STATUS, bg=BG, fg=TEXT_DIM).pack(padx=24)
+        self._status_lbl = tk.Label(bar, textvariable=self._status_var, font=FONT_STATUS,
+                                     bg=BG_HEADER, fg=TEXT_SUB)
+        self._status_lbl.pack(side=tk.RIGHT)
+
+        # ---- body ---------------------------------------------------------
+        body = tk.Frame(self.root, bg=BG)
+        body.pack(fill=tk.BOTH, expand=True, padx=18)
 
         self._timer_var = tk.StringVar(value="00:00")
-        tk.Label(self.root, textvariable=self._timer_var,
-                 font=FONT_TIMER, bg=BG, fg=TEXT_MAIN).pack(pady=(6, 14))
+        tk.Label(body, textvariable=self._timer_var, font=FONT_TIMER,
+                 bg=BG, fg=TEXT_MAIN).pack(pady=(14, 8))
 
-        self._btn = make_button(self.root, "Start Recording", self._toggle, BTN_START, BG,
+        self._btn = make_button(body, "Start Recording", self._toggle, BTN_START, BG,
                                 (SANS, 13, "bold"), width=22, height=2)
-        self._btn.pack(pady=(0, 18))
+        self._btn.pack(pady=(0, 16))
 
-        # model selector + always-on-top row
-        row = tk.Frame(self.root, bg=BG)
-        row.pack(pady=(0, 4))
-        tk.Label(row, text="Model:", font=FONT_BODY, bg=BG,
-                 fg=TEXT_DIM).pack(side=tk.LEFT, padx=(0, 6))
+        # model + live selectors (aligned in a two-column grid)
+        controls = tk.Frame(body, bg=BG)
+        controls.pack(fill=tk.X)
+        controls.columnconfigure(1, weight=1)
+        tk.Label(controls, text="Model", font=FONT_BODY, bg=BG,
+                 fg=TEXT_SUB).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=3)
         self._model_var = tk.StringVar(value=self.settings["whisper_model"])
-        self._model_box = ttk.Combobox(row, textvariable=self._model_var, state="readonly",
-                                       width=14, font=FONT_BODY)
+        self._model_box = ttk.Combobox(controls, textvariable=self._model_var, state="readonly",
+                                       font=FONT_BODY)
         self._set_model_choices()
-        self._model_box.pack(side=tk.LEFT, padx=(0, 16))
+        self._model_box.grid(row=0, column=1, sticky="ew", pady=3)
         self._model_box.bind("<<ComboboxSelected>>", self._on_model_changed)
+        tk.Label(controls, text="Live", font=FONT_BODY, bg=BG,
+                 fg=TEXT_SUB).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=3)
+        self._live_var = tk.StringVar(
+            value=LIVE_LABELS.get(self.settings["live_mode"], LIVE_LABELS["off"]))
+        self._live_box = ttk.Combobox(controls, textvariable=self._live_var, state="readonly",
+                                      font=FONT_BODY, values=list(LIVE_LABELS.values()))
+        self._live_box.grid(row=1, column=1, sticky="ew", pady=3)
+        self._live_box.bind("<<ComboboxSelected>>", self._on_live_mode_changed)
 
-        self._ontop_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(
-            row, text="Always on top",
-            variable=self._ontop_var, command=self._toggle_ontop,
-            font=FONT_BODY, bg=BG, fg=TEXT_DIM,
-            selectcolor=BG, activebackground=BG, activeforeground=TEXT_DIM,
-            relief=tk.FLAT, bd=0,
-        ).pack(side=tk.LEFT)
+        self._live_hint_var = tk.StringVar(value=LIVE_HINTS.get(self.settings["live_mode"], ""))
+        tk.Label(body, textvariable=self._live_hint_var, font=(SANS, 8), bg=BG, fg=TEXT_DIM,
+                 wraplength=460, justify="left", anchor="w").pack(fill=tk.X, pady=(3, 10))
 
-        # transcription/summary queue status
+        # ---- live area (embedded; shown only when a live mode is on) ------
+        self._build_live_area(body)
+
+        # ---- bottom bar: reserved at the bottom (side=BOTTOM) so it is never
+        #      pushed off-window by the expanding live area above it. -------
+        bottom = tk.Frame(body, bg=BG)
+        bottom.pack(side=tk.BOTTOM, fill=tk.X)
+
         self._queue_var = tk.StringVar(value="")
-        tk.Label(self.root, textvariable=self._queue_var,
-                 font=FONT_BODY, bg=BG, fg=TEXT_DIM).pack(pady=(10, 2))
-
-        # manual triggers
-        btn_row = tk.Frame(self.root, bg=BG)
-        btn_row.pack(pady=(0, 6))
+        self._queue_lbl = tk.Label(bottom, textvariable=self._queue_var, font=FONT_BODY,
+                                   bg=BG, fg=TEXT_SUB)
+        self._queue_lbl.pack(pady=(2, 4))
+        btn_row = tk.Frame(bottom, bg=BG)
+        btn_row.pack(pady=(0, 8))
         self._pending_btn = self._small_button(btn_row, "Process pending", self._process_pending)
         self._small_button(btn_row, "Open folder", self._open_folder)
         self._small_button(btn_row, "Settings", self._open_settings)
-
-        tk.Frame(self.root, bg=BTN_SMALL, height=1).pack(fill=tk.X, pady=(12, 0))
-
+        self._ontop_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(btn_row, text="On top", variable=self._ontop_var,
+                       command=self._toggle_ontop, font=(SANS, 9), bg=BG, fg=TEXT_DIM,
+                       selectcolor=BG, activebackground=BG, activeforeground=TEXT_DIM,
+                       relief=tk.FLAT, bd=0).pack(side=tk.LEFT, padx=(8, 0))
         self._log_box = scrolledtext.ScrolledText(
-            self.root, font=FONT_LOG, bg="#181825", fg=TEXT_DIM,
-            insertbackground=TEXT_MAIN, relief=tk.FLAT,
-            width=50, height=7, state=tk.DISABLED,
-            padx=8, pady=6,
-        )
+            bottom, font=FONT_LOG, bg=BG_PANEL, fg=TEXT_SUB, insertbackground=TEXT_MAIN,
+            relief=tk.FLAT, height=5, state=tk.DISABLED, padx=10, pady=6)
         self._log_box.pack(fill=tk.X)
-
         self._dir_var = tk.StringVar(value=self._saving_to_text())
-        tk.Label(self.root, textvariable=self._dir_var, font=(SANS, 8),
-                 bg="#181825", fg=TEXT_DIM, anchor="w").pack(fill=tk.X, padx=8)
+        tk.Label(bottom, textvariable=self._dir_var, font=(SANS, 8), bg=BG_PANEL, fg=TEXT_DIM,
+                 anchor="w").pack(fill=tk.X)
+        tk.Frame(bottom, bg=BG, height=10).pack()
 
-        tk.Frame(self.root, bg=BG, height=10).pack()
+        self._apply_live_layout(resize=True)
+
+    def _build_live_area(self, body):
+        self._live_frame = tk.Frame(body, bg=BG)
+        tk.Label(self._live_frame, text="Live transcript  (draft)", font=FONT_SECTION,
+                 bg=BG, fg=TEXT_MAIN).pack(anchor="w")
+        self._live_text = scrolledtext.ScrolledText(
+            self._live_frame, font=(SANS, 10), bg=BG_PANEL, fg=TEXT_MAIN,
+            insertbackground=TEXT_MAIN, relief=tk.FLAT, wrap="word", height=6,
+            state=tk.DISABLED, padx=10, pady=8, spacing1=1, spacing3=2)
+        self._live_text.pack(fill=tk.BOTH, expand=True, pady=(3, 10))
+        self._live_text.tag_configure("placeholder", foreground=TEXT_DIM)
+
+        self._notes_frame = tk.Frame(self._live_frame, bg=BG)
+        nhdr = tk.Frame(self._notes_frame, bg=BG)
+        nhdr.pack(fill=tk.X)
+        tk.Label(nhdr, text="Notes", font=FONT_SECTION, bg=BG, fg=TEXT_MAIN).pack(side=tk.LEFT)
+        self._live_notes_btn = make_button(nhdr, "Generate now", self._live_notes_now,
+                                           SURFACE, TEXT_MAIN, (SANS, 9),
+                                           active_bg=SURFACE_HI, padx=10, pady=3)
+        self._live_notes_btn.pack(side=tk.RIGHT)
+        self._live_notes = scrolledtext.ScrolledText(
+            self._notes_frame, font=(SANS, 10), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT,
+            wrap="word", height=6, state=tk.DISABLED, padx=10, pady=8, spacing1=1, spacing3=3)
+        self._live_notes.pack(fill=tk.BOTH, expand=True, pady=(3, 10))
+        self._configure_notes_tags()
 
     def _small_button(self, parent, text, command):
-        btn = make_button(parent, text, command, BTN_SMALL, TEXT_MAIN, (SANS, 10),
-                          active_bg="#45475a", padx=10, pady=4)
+        btn = make_button(parent, text, command, SURFACE, TEXT_MAIN, (SANS, 10),
+                          active_bg=SURFACE_HI, padx=10, pady=4)
         btn.pack(side=tk.LEFT, padx=3)
         return btn
+
+    def _setup_styles(self):
+        """Dark theme for the ttk widgets (comboboxes here, the Settings dialog too)."""
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")      # the one built-in theme that fully recolors
+        except tk.TclError:
+            pass
+        style.configure("TCombobox", fieldbackground=SURFACE, background=SURFACE,
+                        foreground=TEXT_MAIN, arrowcolor=TEXT_MAIN, bordercolor=SURFACE,
+                        lightcolor=SURFACE, darkcolor=SURFACE, relief="flat", padding=5)
+        style.map("TCombobox", fieldbackground=[("readonly", SURFACE)],
+                  background=[("readonly", SURFACE)], foreground=[("readonly", TEXT_MAIN)],
+                  selectbackground=[("readonly", SURFACE)],
+                  selectforeground=[("readonly", TEXT_MAIN)])
+        self.root.option_add("*TCombobox*Listbox.background", BG_PANEL)
+        self.root.option_add("*TCombobox*Listbox.foreground", TEXT_MAIN)
+        self.root.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
+        self.root.option_add("*TCombobox*Listbox.selectForeground", BG)
+        style.configure("TFrame", background=BG)
+        style.configure("TLabel", background=BG, foreground=TEXT_MAIN)
+        style.configure("TCheckbutton", background=BG, foreground=TEXT_MAIN)
+        style.map("TCheckbutton", background=[("active", BG)])
+        style.configure("TButton", background=SURFACE, foreground=TEXT_MAIN,
+                        bordercolor=SURFACE, focuscolor=SURFACE, relief="flat", padding=6)
+        style.map("TButton", background=[("active", SURFACE_HI)])
+        style.configure("TEntry", fieldbackground=SURFACE, foreground=TEXT_MAIN,
+                        bordercolor=SURFACE, insertcolor=TEXT_MAIN, padding=4)
+        style.configure("TSpinbox", fieldbackground=SURFACE, foreground=TEXT_MAIN,
+                        bordercolor=SURFACE, arrowcolor=TEXT_MAIN, padding=4)
+        style.configure("TNotebook", background=BG, bordercolor=SURFACE)
+        style.configure("TNotebook.Tab", background=BG_PANEL, foreground=TEXT_SUB,
+                        padding=(12, 5))
+        style.map("TNotebook.Tab", background=[("selected", SURFACE)],
+                  foreground=[("selected", TEXT_MAIN)])
+        style.configure("TSeparator", background=SURFACE)
 
     def _set_model_choices(self):
         choices = list(config.WHISPER_MODELS)
@@ -222,8 +352,12 @@ class App:
             self._log(w)
         self._log("Settings updated.")
         self._model_var.set(self.settings["whisper_model"])
+        self._live_var.set(LIVE_LABELS.get(self.settings["live_mode"], LIVE_LABELS["off"]))
+        self._live_hint_var.set(LIVE_HINTS.get(self.settings["live_mode"], ""))
         self._set_model_choices()
         self._dir_var.set(self._saving_to_text())
+        if self.settings["live_mode"] != old["live_mode"]:
+            self._apply_live_layout(resize=True)
         if self.settings["hotkey"] != old["hotkey"]:
             self._apply_hotkey()
         if (self.settings["summary_backend"], self.settings["summary_model"]) != \
@@ -383,6 +517,7 @@ class App:
                     padx=12, pady=4).pack(side=tk.LEFT, padx=3)
         win.protocol("WM_DELETE_WINDOW", decline)
         win.update_idletasks()
+        osutil.set_dark_titlebar(win)
         x = win.winfo_screenwidth() - win.winfo_reqwidth() - 24
         y = win.winfo_screenheight() - win.winfo_reqheight() - 72
         win.geometry(f"+{x}+{y}")
@@ -412,9 +547,12 @@ class App:
         started = datetime.now()
         wav = files.new_recording_path(self._output_dir(), started)
         s = self.settings
+
+        live = self._make_live_transcriber(s)
         recorder = DualChannelRecorder(wav, silence_threshold=s["silence_threshold"],
                                        microphone=s["microphone"],
-                                       system_audio=s["system_audio"])
+                                       system_audio=s["system_audio"],
+                                       on_audio=live.feed_stereo if live else None)
         try:
             recorder.start()
         except OSError as exc:
@@ -423,6 +561,7 @@ class App:
 
         self._recording, self._start_time = True, started
         self._recorder, self._recording_wav = recorder, wav
+        self._live = live
         self._trigger_app = trigger
         self._errors_seen = 0
         self._warned_silent_mic = False
@@ -431,6 +570,14 @@ class App:
         mic, system = device_names(s["microphone"], s["system_audio"])
         self._log(f"Started at {started.strftime('%H:%M:%S')}  (mic: {mic}; system: {system})")
         self._update_tray("recording")
+        if live is not None:
+            live.start()
+            self._apply_live_layout()
+            self._clear_live(recording=True)
+            self._log(f"Live {LIVE_LABELS.get(s['live_mode'], s['live_mode'])} is on "
+                      f"(draft via '{s['live_model'] or 'base'}'; final transcript at stop).")
+            if s["live_mode"] == "auto-notes":
+                self._schedule_live_notes()
         self._tick()
 
     def _stop(self):
@@ -450,7 +597,11 @@ class App:
         self.root.title(TITLE)
 
         recorder, wav = self._recorder, self._recording_wav
-        self._recorder = self._recording_wav = None
+        live = self._live
+        self._recorder = self._recording_wav = self._live = None
+        if self._live_notes_timer:
+            self.root.after_cancel(self._live_notes_timer)
+            self._live_notes_timer = None
         # Reserve the path so a "Process pending" scan can't grab the file
         # before _finalize has closed it and queued it.
         with self._pending_lock:
@@ -460,11 +611,16 @@ class App:
         self._set_status("Ready")
         self._update_tray()
         self._refresh_status()
-        threading.Thread(target=self._finalize, args=(recorder, wav), daemon=True).start()
+        threading.Thread(target=self._finalize, args=(recorder, wav, live), daemon=True).start()
 
-    def _finalize(self, recorder: DualChannelRecorder, wav: Path):
+    def _finalize(self, recorder: DualChannelRecorder, wav: Path, live=None):
         """Stop the audio streams, close the .wav and queue it (worker thread)."""
         frames = recorder.stop()
+        if live is not None:
+            try:
+                live.stop()      # transcribe the last few seconds into the live draft
+            except Exception as exc:
+                self._log_from_thread(f"Live transcription stop error: {exc}")
         if frames:
             self._job_queue.put(wav)
             self._log_from_thread(f"Saved {wav.name} ({recorder.duration_seconds:.0f}s) "
@@ -475,6 +631,182 @@ class App:
                 self._pending.discard(wav)
             self._log_from_thread("No audio captured.")
         self.root.after(0, self._refresh_status)
+
+    # ---- Live transcription ---------------------------------------------
+
+    def _make_live_transcriber(self, s: dict):
+        """A LiveTranscriber for this recording, or None if live mode is off."""
+        if s["live_mode"] == "off":
+            return None
+        if BACKEND is None:
+            self._log("Live transcription needs a transcription backend; staying off.")
+            return None
+        return LiveTranscriber(
+            model=s["live_model"] or "base", device=s["device"],
+            language=s["language"].strip() or None,
+            interval=max(2, int(s["live_interval"])),
+            silence_threshold=s["silence_threshold"],
+            on_segments=self._on_live_segments, log=self._log_from_thread)
+
+    def _on_live_mode_changed(self, _event=None):
+        mode = LIVE_MODE_BY_LABEL.get(self._live_var.get(), "off")
+        changed = mode != self.settings["live_mode"]
+        self.settings = {**self.settings, "live_mode": mode}
+        try:
+            config.update_setting("live_mode", mode)
+            self._settings_mtime = self._mtime()
+        except OSError as exc:
+            self._log(f"Could not save settings: {exc}")
+        self._live_hint_var.set(LIVE_HINTS.get(mode, ""))
+        self._apply_live_layout(resize=changed)
+        self._log(f"Live mode: {LIVE_LABELS.get(mode, mode)}"
+                  + ("" if mode == "off" else " - starts with the next recording."))
+
+    def _apply_live_layout(self, resize: bool = False):
+        """Show or hide the embedded live transcript / notes to match the mode."""
+        mode = self.settings["live_mode"]
+        show = mode != "off"
+        notes = mode in ("transcript+notes", "auto-notes")
+        if show:
+            if not self._live_frame.winfo_manager():
+                # side=TOP fills the space between the controls above and the
+                # (already reserved) bottom bar below.
+                self._live_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            if notes and not self._notes_frame.winfo_manager():
+                self._notes_frame.pack(fill=tk.BOTH, expand=True)
+            elif not notes:
+                self._notes_frame.pack_forget()
+            if not self._recording and not self._live_has_text:
+                self._clear_live(recording=False)
+        else:
+            self._live_frame.pack_forget()
+        if resize:
+            w, h = (460, 540) if not show else (560, 780) if notes else (560, 620)
+            self.root.geometry(f"{w}x{h}")
+
+    def _clear_live(self, recording: bool):
+        """Empty the transcript (with a placeholder when idle) and the notes."""
+        if self._live_text is not None and self._live_text.winfo_exists():
+            self._live_text.config(state=tk.NORMAL)
+            self._live_text.delete("1.0", tk.END)
+            if not recording:
+                self._live_text.insert("1.0", "The live transcript will appear here as you "
+                                       "talk, once you start recording.", "placeholder")
+            self._live_text.config(state=tk.DISABLED)
+        self._live_has_text = False
+        self._set_live_notes("")
+
+    def _on_live_segments(self, segs):
+        self.root.after(0, self._append_live_segments, segs)
+
+    def _append_live_segments(self, segs):
+        if self._live_text is None or not self._live_text.winfo_exists():
+            return
+        self._live_text.config(state=tk.NORMAL)
+        if not self._live_has_text:          # drop the placeholder on the first real text
+            self._live_text.delete("1.0", tk.END)
+            self._live_has_text = True
+        for s in segs:
+            who = f"{s.speaker}: " if s.speaker else ""
+            self._live_text.insert(tk.END, f"[{format_timestamp(s.start)}]  {who}{s.text}\n")
+        self._live_text.see(tk.END)
+        self._live_text.config(state=tk.DISABLED)
+
+    def _schedule_live_notes(self):
+        interval = max(60, int(self.settings["live_notes_interval"]))
+        self._live_notes_timer = self.root.after(interval * 1000, self._auto_live_notes)
+
+    def _auto_live_notes(self):
+        self._live_notes_timer = None
+        if self._live is None:
+            return
+        self._live_notes_now()
+        if self._live is not None:
+            self._schedule_live_notes()
+
+    def _live_notes_now(self):
+        if self._live is None or self._live_notes_running:
+            return
+        reason = summarize.unavailable_reason(self.settings)
+        if reason:
+            self._set_live_notes(f"Notes unavailable: {reason}.")
+            return
+        text = self._live.transcript_text()
+        if not text.strip():
+            self._set_live_notes("Nothing transcribed yet.")
+            return
+        self._live_notes_running = True
+        if self._live_notes_btn is not None and self._live_notes_btn.winfo_exists():
+            self._live_notes_btn.config(text="Working...")
+        threading.Thread(target=self._live_notes_worker,
+                         args=(text, dict(self.settings)), daemon=True).start()
+
+    def _live_notes_worker(self, text: str, settings: dict):
+        try:
+            notes, markdown = summarize.summarize(text, settings), True
+        except Exception as exc:
+            notes, markdown = f"Notes failed: {exc}", False
+        self.root.after(0, self._finish_live_notes, notes, markdown)
+
+    def _finish_live_notes(self, notes: str, markdown: bool = True):
+        self._live_notes_running = False
+        if self._live_notes_btn is not None and self._live_notes_btn.winfo_exists():
+            self._live_notes_btn.config(text="Generate now")
+        self._set_live_notes(notes, markdown=markdown)
+
+    def _set_live_notes(self, text: str, markdown: bool = False):
+        if self._live_notes is None or not self._live_notes.winfo_exists():
+            return
+        if markdown and text.strip():
+            self._render_markdown(self._live_notes, text)
+            return
+        self._live_notes.config(state=tk.NORMAL)
+        self._live_notes.delete("1.0", tk.END)
+        if text:
+            self._live_notes.insert(tk.END, text + "\n")
+        self._live_notes.config(state=tk.DISABLED)
+
+    # -- lightweight Markdown rendering for the notes panel ---------------
+    def _configure_notes_tags(self):
+        n = self._live_notes
+        n.tag_configure("h1", font=(SANS, 13, "bold"), foreground=TEXT_MAIN,
+                        spacing1=8, spacing3=4)
+        n.tag_configure("h2", font=(SANS, 10, "bold"), foreground=ACCENT, spacing1=7, spacing3=2)
+        n.tag_configure("bullet", lmargin1=16, lmargin2=30, spacing3=2)
+        n.tag_configure("bold", font=(SANS, 10, "bold"))
+
+    def _render_markdown(self, widget, text: str):
+        widget.config(state=tk.NORMAL)
+        widget.delete("1.0", tk.END)
+        for raw in text.splitlines():
+            line = raw.rstrip()
+            if line.startswith("### "):
+                widget.insert(tk.END, line[4:] + "\n", "h2")
+            elif line.startswith("## "):
+                widget.insert(tk.END, line[3:] + "\n", "h2")
+            elif line.startswith("# "):
+                widget.insert(tk.END, line[2:] + "\n", "h1")
+            elif line.lstrip().startswith(("- ", "* ")):
+                widget.insert(tk.END, "•  ", "bullet")
+                self._insert_inline(widget, line.lstrip()[2:], "bullet")
+                widget.insert(tk.END, "\n", "bullet")
+            else:
+                self._insert_inline(widget, line, None)
+                widget.insert(tk.END, "\n")
+        widget.see("1.0")
+        widget.config(state=tk.DISABLED)
+
+    def _insert_inline(self, widget, text: str, base_tag):
+        """Insert text into a Text widget, rendering **bold** spans."""
+        base = (base_tag,) if base_tag else ()
+        pos = 0
+        for m in re.finditer(r"\*\*(.+?)\*\*", text):
+            if m.start() > pos:
+                widget.insert(tk.END, text[pos:m.start()], base)
+            widget.insert(tk.END, m.group(1), base + ("bold",))
+            pos = m.end()
+        if pos < len(text):
+            widget.insert(tk.END, text[pos:], base)
 
     # ---- Background worker ----------------------------------------------
 
@@ -615,6 +947,8 @@ class App:
 
     def _set_status(self, text: str):
         self._status_var.set(text)
+        color = {"Recording": BTN_STOP, "Ready": TEXT_SUB}.get(text, ACCENT)
+        self._status_lbl.config(fg=color)
 
     def _refresh_status(self):
         """Update the queue label and the 'pending' button count (main thread)."""
@@ -693,6 +1027,12 @@ class App:
                 self.root.after_cancel(self._timer_id)
             if not self._recorder.stop() and self._recording_wav:
                 self._recording_wav.unlink(missing_ok=True)
+        if self._live is not None:
+            try:
+                self._live.stop()
+            except Exception:
+                pass
+            self._live = None
         for closer in (self._hotkey, self._tray, self._watcher):
             if closer is not None:
                 closer.stop()
@@ -715,7 +1055,7 @@ def set_window_icon(root: tk.Tk) -> None:
 
 def main():
     root = tk.Tk()
-    root.geometry("420x470")
     set_window_icon(root)
-    App(root)
+    App(root)                       # _build sizes the window to the current live mode
+    osutil.set_dark_titlebar(root)
     root.mainloop()

@@ -35,6 +35,10 @@
   items, written in the meeting's own language. They come from the
   [Claude Code](https://code.claude.com/docs/en/overview) CLI (your Claude login, no API
   key), the Anthropic API, or a **fully local model through [Ollama](https://ollama.com)**.
+- **Live transcript, if you want it.** Optionally watch a rough transcript build up in the
+  window as you talk, and write running notes on the fly. It's off by default, and the clean
+  transcript and summary are still made when you stop. See
+  [Live transcript](#live-transcript-near-real-time).
 - **Crash-safe.** Audio is written to disk while you record, so a crash or power cut loses
   only the last couple of seconds. *Process pending* finishes anything left unfinished.
 - **Stays out of your way.** Transcripts and summaries are made in the background, and a
@@ -83,7 +87,8 @@ PulseAudio client library must be installed (for example
 |---|---|
 | **Start / Stop Recording** | Toggle recording. While recording, the window title shows `● REC mm:ss`, so you can see it on the taskbar too. |
 | **Model** | Whisper model: `tiny`, `base` (default), `small`, `medium`, `large-v3-turbo`, `large-v3`, `large-v2`. Larger models are more accurate but slower. `large-v3-turbo` is the best accuracy for the speed. |
-| **Always on top** | Keep the small window above other windows during a call. |
+| **Live** | What appears *while* you record — see [Live transcript](#live-transcript-near-real-time). *Off* (the default) keeps the transcribe-at-stop behaviour. |
+| **On top** | Keep the window above other windows during a call. |
 | **Process pending** | Transcribe any leftover recordings and summarize transcripts that don't have a summary yet. |
 | **Open folder** | Open the output folder. |
 | **Settings** | Open the settings window (see [Configuration](#configuration)). |
@@ -108,6 +113,23 @@ Settings, or use `*` to be asked for every app.
   icon in the taskbar).
 - **Linux:** it uses the PulseAudio/PipeWire recording streams.
 - **macOS:** not available yet.
+
+### Live transcript (near real time)
+
+By default the transcript and summary are made when you press *Stop*. Set **Live** (on the
+main window, or in *Settings → Transcription*) to one of the live modes to also watch a rough
+draft build up in the window as you talk:
+
+- **Live transcript** — a running draft transcript, embedded in the window.
+- **Live transcript + notes (on demand)** — adds a *Generate now* button that writes running
+  notes (key points, decisions, action items) from the draft whenever you press it.
+- **Live transcript + auto notes** — the notes also refresh themselves every few minutes.
+
+The live draft uses a fast model (`live_model`, default `base`) on the mixed audio, so on the
+CPU it lags a little behind and is rougher than the final transcript — the clean,
+speaker-labelled transcript and the summary are still produced from the recording when you
+stop. The notes use your summary backend. Tune the pace with `live_interval` and
+`live_notes_interval`.
 
 ### Output
 
@@ -191,6 +213,10 @@ the file.
 | `whisper_model` | `"base"` | Whisper model (any [faster-whisper model name](https://github.com/SYSTRAN/faster-whisper) works) |
 | `device` | `"cpu"` | `"cpu"`, or `"auto"` / `"cuda"` to use an NVIDIA GPU (needs CUDA 12 + cuDNN 9; falls back to the CPU) |
 | `language` | `""` | `""` = auto-detect, or a language code such as `"en"`, `"it"`, `"de"` |
+| `live_mode` | `"off"` | Live draft while recording: `"off"`, `"transcript"`, `"transcript+notes"` or `"auto-notes"` |
+| `live_model` | `"base"` | Whisper model for the live draft (a small, fast one is best) |
+| `live_interval` | `15` | Seconds between live transcript updates |
+| `live_notes_interval` | `300` | Seconds between automatic note refreshes (in `auto-notes` mode) |
 | `microphone` | `""` | `""` = the system default input, or part of a device name, e.g. `"Headset"` |
 | `system_audio` | `""` | `""` = loopback of the default output, or part of the name of a device to record as "others" (e.g. `"BlackHole"`) |
 | `speaker_labels` | `true` | Label lines with `mic_label` / `others_label` |

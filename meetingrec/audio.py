@@ -213,10 +213,13 @@ class DualChannelRecorder:
 
     def __init__(self, path: Path, sample_rate: int = SAMPLE_RATE,
                  silence_threshold: float = 0.01, microphone: str = "",
-                 system_audio: str = "", sources=None):
+                 system_audio: str = "", sources=None, on_audio=None):
         self.path = path
         self.sample_rate = sample_rate
         self.silence_threshold = silence_threshold
+        # Optional tap: called with each (left, right) block as it is written,
+        # e.g. to feed a live transcriber. Must be cheap and must not raise.
+        self.on_audio = on_audio
         self._sources = sources or (functools.partial(open_microphone, name=microphone),
                                     functools.partial(open_system_audio, name=system_audio))
         self._bufs: tuple[list, list] = ([], [])
@@ -317,6 +320,11 @@ class DualChannelRecorder:
                     return
                 left, right = self._take(MIC, n), self._take(SYSTEM, n)
             self._writer.write(left, right)
+            if self.on_audio is not None:
+                try:
+                    self.on_audio(left, right)
+                except Exception:
+                    pass          # a live-tap failure must never break recording
 
     def _take(self, ch: int, n: int) -> np.ndarray:
         """Remove exactly n frames from a channel's buffer, zero-padded if short."""

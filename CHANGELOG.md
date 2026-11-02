@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.3.0
+
+### New
+- **Live ("near real time") transcription.** A new **Live** menu on the main window (and in
+  *Settings → Transcription*) chooses what happens while you record: *Off* (unchanged —
+  transcribe and summarize when you stop), *Live transcript* (a rolling draft transcript
+  appears right in the window as the meeting goes), *Live transcript + notes (on demand)*
+  (adds a *Generate now* button for running notes), or *Live transcript + auto notes* (also
+  refreshes the notes every few minutes). Each option explains itself with a one-line hint
+  under the menu. The live draft uses a fast model (`live_model`, default `base`) on the
+  mixed audio and lags a little behind on CPU; the clean, speaker-labelled transcript and
+  the summary are still produced from the recording when you stop. New settings: `live_mode`,
+  `live_model`, `live_interval`, `live_notes_interval`.
+- **Refreshed interface.** The live transcript and notes are now embedded in the main
+  window (no separate window), the notes are rendered as formatted, easy-to-read text, the
+  window is resizable, and the app uses a dark title bar on Windows 11 with a tidied,
+  consistent dark theme throughout (including the Settings dialog).
+
 ## 1.2.0
 
 ### New

@@ -11,6 +11,8 @@ SAMPLE_RATE = 16_000
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large-v3-turbo", "large-v3", "large-v2"]
 DEVICES = ["cpu", "auto", "cuda"]
 SUMMARY_BACKENDS = ["claude-cli", "anthropic-api", "ollama", "none"]
+# Live ("near real time") draft while recording. off = transcribe only at stop.
+LIVE_MODES = ["off", "transcript", "transcript+notes", "auto-notes"]
 
 HELP_URL = "https://github.com/giacfalk/meeting-transcribe-n-summarize#configuration"
 
@@ -27,6 +29,10 @@ DEFAULTS: dict = {
     "whisper_model": "base",        # see WHISPER_MODELS (any faster-whisper name works)
     "device": "cpu",                # cpu | auto (GPU if available) | cuda
     "language": "",                 # "" = auto-detect; or a code such as "en", "it", "de"
+    "live_mode": "off",             # off | transcript | transcript+notes | auto-notes
+    "live_model": "base",           # Whisper model for the live draft (small/fast is best)
+    "live_interval": 15,            # seconds between live transcription passes
+    "live_notes_interval": 300,     # seconds between auto-notes refreshes (auto-notes mode)
     "microphone": "",               # "" = the system default input; or part of a device name
     "system_audio": "",             # "" = loopback of the default output; or part of the
                                     # name of an input device to record instead (e.g. BlackHole)
@@ -49,7 +55,7 @@ DEFAULTS: dict = {
     "ollama_url": "http://localhost:11434",
 }
 
-_CHOICES = {"device": DEVICES, "summary_backend": SUMMARY_BACKENDS}
+_CHOICES = {"device": DEVICES, "summary_backend": SUMMARY_BACKENDS, "live_mode": LIVE_MODES}
 
 
 def defaults() -> dict:

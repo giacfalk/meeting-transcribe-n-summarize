@@ -66,6 +66,7 @@ class SettingsDialog(tk.Toplevel):
         self.bind("<Escape>", lambda _e: self.destroy())
 
         self.update_idletasks()
+        osutil.set_dark_titlebar(self)
         x = master.winfo_rootx() + 30
         y = master.winfo_rooty() + 30
         self.geometry(f"+{x}+{y}")
@@ -119,6 +120,26 @@ class SettingsDialog(tk.Toplevel):
         self.v_others_label, e2 = self._entry(f, "others_label")
         self._row(f, "Others' label", e2)
         self.v_srt = self._check(f, "Also write .srt subtitles", "write_srt")
+
+        ttk.Separator(f, orient="horizontal").grid(
+            row=f.grid_size()[1], column=0, columnspan=2, sticky="ew", pady=(10, 2))
+        self.v_live_mode = tk.StringVar(value=self._s["live_mode"])
+        self._row(f, "Live mode", ttk.Combobox(f, textvariable=self.v_live_mode,
+                                              values=config.LIVE_MODES, state="readonly", width=30),
+                  "Draft transcript (+ optional notes) while recording; off = only at stop. "
+                  "The clean transcript is still produced at stop.")
+        self.v_live_model = tk.StringVar(value=self._s["live_model"])
+        self._row(f, "Live model", ttk.Combobox(f, textvariable=self.v_live_model,
+                                               values=config.WHISPER_MODELS, width=30),
+                  "Fast model for the live draft, e.g. base or tiny")
+        self.v_live_interval = tk.StringVar(value=str(self._s["live_interval"]))
+        self._row(f, "Live update every", ttk.Spinbox(f, from_=2, to=120, increment=5, width=8,
+                                                     textvariable=self.v_live_interval),
+                  "seconds between live updates")
+        self.v_live_notes_interval = tk.StringVar(value=str(self._s["live_notes_interval"]))
+        self._row(f, "Auto-notes every", ttk.Spinbox(f, from_=60, to=3600, increment=60, width=8,
+                                                    textvariable=self.v_live_notes_interval),
+                  "seconds (only in the auto-notes live mode)")
 
     def _build_audio(self, f):
         self.v_mic = tk.StringVar(value=self._s["microphone"] or DEFAULT_MIC)
@@ -242,12 +263,28 @@ class SettingsDialog(tk.Toplevel):
         ollama = self.v_ollama.get().strip()
         if not ollama.startswith(("http://", "https://")):
             raise ValueError("Ollama URL must start with http:// or https://")
+        try:
+            live_interval = int(float(self.v_live_interval.get()))
+            if live_interval < 2:
+                raise ValueError
+        except ValueError:
+            raise ValueError("Live update interval must be at least 2 seconds.") from None
+        try:
+            live_notes_interval = int(float(self.v_live_notes_interval.get()))
+            if live_notes_interval < 60:
+                raise ValueError
+        except ValueError:
+            raise ValueError("Auto-notes interval must be at least 60 seconds.") from None
         language = self.v_language.get().strip()
         mic, system = self.v_mic.get().strip(), self.v_system.get().strip()
         return {
             "whisper_model": self.v_model.get().strip() or "base",
             "language": "" if language == AUTO else language,
             "device": self.v_device.get(),
+            "live_mode": self.v_live_mode.get(),
+            "live_model": self.v_live_model.get().strip() or "base",
+            "live_interval": live_interval,
+            "live_notes_interval": live_notes_interval,
             "speaker_labels": self.v_labels.get(),
             "mic_label": mic_label or "Me",
             "others_label": others_label or "Others",

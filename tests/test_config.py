@@ -66,6 +66,19 @@ def test_defaults_are_copied():
     assert "my-app" not in config.DEFAULTS["meeting_apps"]
 
 
+def test_live_mode_defaults_and_validation(tmp_path):
+    assert config.DEFAULTS["live_mode"] == "off"
+    assert config.DEFAULTS["live_model"] == "base"
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"live_mode": "nonsense", "live_model": "tiny",
+                                "live_interval": 10}), encoding="utf-8")
+    settings, warnings = config.load_settings(path)
+    assert settings["live_mode"] == "off"          # invalid choice falls back to default
+    assert settings["live_model"] == "tiny"
+    assert settings["live_interval"] == 10
+    assert any("live_mode" in w for w in warnings)
+
+
 def test_meeting_apps_must_be_a_list_of_strings(tmp_path):
     path = tmp_path / "settings.json"
     path.write_text(json.dumps({"meeting_apps": ["zoom", 3]}), encoding="utf-8")

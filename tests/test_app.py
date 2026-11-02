@@ -89,6 +89,98 @@ def test_settings_dialog_validates_and_saves(app):
     assert app.settings["language"] == "it"                 # applied immediately
 
 
+def test_live_mode_persists_and_wires_up(app, monkeypatch):
+    import meetingrec.app as appmod
+    from meetingrec.transcribe import Segment
+
+    monkeypatch.setattr(appmod, "BACKEND", "faster_whisper")
+
+    class FakeRecorder:
+        def __init__(self, path, **kw):
+            self.on_audio = kw.get("on_audio")
+            self.errors: list = []
+            self.duration_seconds = 0.0
+            self.seconds_since_sound = 0.0
+
+        def start(self):
+            pass
+
+        def mic_is_digital_silence(self, after_seconds=5.0):
+            return False
+
+        def stop(self):
+            return 0          # "no audio": skip the real transcription worker in this test
+
+    class FakeLive:
+        def __init__(self, **kw):
+            self.on_segments = kw["on_segments"]
+            self.started = self.stopped = False
+
+        def feed_stereo(self, left, right):
+            pass
+
+        def start(self):
+            self.started = True
+
+        def stop(self):
+            self.stopped = True
+
+        def transcript_text(self):
+            return "[00:00] hi"
+
+    monkeypatch.setattr(appmod, "DualChannelRecorder", FakeRecorder)
+    monkeypatch.setattr(appmod, "LiveTranscriber", FakeLive)
+    # _stop runs _finalize in a background thread (covered by the audio/worker
+    # tests); stub it so this test makes no Tk calls off the main thread.
+    monkeypatch.setattr(app, "_finalize", lambda *a, **k: None)
+
+    app._live_var.set("Live transcript")
+    app._on_live_mode_changed()
+    saved = json.loads((app.test_profile / "settings.json").read_text(encoding="utf-8"))
+    assert saved["live_mode"] == "transcript"
+
+    app._start()
+    app.root.update()
+    assert isinstance(app._live, FakeLive) and app._live.started
+    assert app._recorder.on_audio == app._live.feed_stereo
+    assert app._live_frame.winfo_manager() == "pack"   # live area embedded + shown
+
+    app._append_live_segments([Segment(0.0, 1.0, "hello world")])
+    app.root.update()
+    assert "hello world" in app._live_text.get("1.0", "end")
+
+    app._stop()
+    app.root.update()
+    assert app._live is None            # live is torn down on stop
+
+
+def test_live_layout_follows_mode_and_notes_render_markdown(app):
+    from meetingrec.app import LIVE_LABELS
+
+    app._live_var.set(LIVE_LABELS["off"])
+    app._on_live_mode_changed()
+    app.root.update()
+    assert app._live_frame.winfo_manager() == ""              # off: hidden
+
+    app._live_var.set(LIVE_LABELS["transcript+notes"])
+    app._on_live_mode_changed()
+    app.root.update()
+    assert app._live_frame.winfo_manager() == "pack"          # shown
+    assert app._notes_frame.winfo_manager() == "pack"         # notes shown
+
+    app._live_var.set(LIVE_LABELS["transcript"])
+    app._on_live_mode_changed()
+    app.root.update()
+    assert app._notes_frame.winfo_manager() == ""             # notes hidden again
+
+    app._set_live_notes("# Title\n## Section\n- point **x**\n", markdown=True)
+    app.root.update()
+    text = app._live_notes.get("1.0", "end")
+    assert "Title" in text and "Section" in text
+    assert "#" not in text and "**" not in text               # markup stripped
+    assert "•  point x" in text                          # bullet rendered
+
+
 def test_meeting_prompt_offers_and_remembers_no(app):
     app._call_started("Zoom")
     assert app._prompt_win is not None and app._prompt_app == "Zoom"
