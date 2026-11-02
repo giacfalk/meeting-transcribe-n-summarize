@@ -260,12 +260,50 @@ when you click *Process pending*.
 
 ## Privacy
 
-- **Audio and transcription stay local.** Whisper runs on your machine, and audio,
-  transcripts and summaries are only written to your output folder.
-- **Summaries depend on the backend** (see the table above). With `claude-cli` or
-  `anthropic-api`, the transcript text is sent to Anthropic under your account's data-usage
-  terms. Choose `ollama` or `none` if your meetings must not leave your machine.
-- **Call detection** only reads *which* apps are using the microphone. It never listens.
+**In short:** recording and transcription are fully local. The only thing that can leave your
+machine is the transcript text sent to *summarize* it — and you choose where that goes, or
+turn it off.
+
+### What stays on your machine
+
+- **Audio and transcription.** Whisper runs locally on your CPU or GPU; your audio is never
+  uploaded to transcribe it. Audio, transcripts, subtitles and summaries are only written to
+  your output folder, and the `.wav` is deleted after transcription unless `keep_audio` is on.
+- **Call detection** only reads *which* apps are using the microphone (the mic-usage the
+  system already tracks). It never listens to, records or sends any audio.
+- **No telemetry.** There is no analytics, crash reporting or phone-home of any kind. The log
+  file (`meetingrec.log`) records file and device names only — never transcript text.
+- **Model download.** The first time you use a Whisper model it is downloaded from Hugging
+  Face. That is model weights coming *to* you; none of your content is uploaded.
+
+### What is sent online — only to summarize
+
+The summary step — and the live **notes**, which use the same backend — sends the
+**transcript text** to the backend you pick in *Settings → Summaries*:
+
+| Backend | Where the transcript text goes |
+|---|---|
+| `claude-cli` **(default)** | Anthropic, under your Claude login |
+| `anthropic-api` | Anthropic, under your API key |
+| `ollama` | A local model — **nothing leaves your machine** |
+| `none` | Nothing is sent (no summary is made) |
+
+So **by default the transcript is sent to Anthropic to be summarized.** How that text is
+retained or used is governed by your Anthropic account's terms, which differ between the
+consumer Claude subscription and the API — review your account's data settings if your
+meetings are sensitive. The transcript is treated as untrusted input, so the summarizer only
+ever gets text in and text out, with no tools and no saved session (see
+[Summary backends](#summary-backends)).
+
+### Keeping everything offline
+
+- Set **`summary_backend`** to **`ollama`** (a local model) or **`none`** — then no content
+  ever leaves your machine.
+- Leave **`keep_audio`** off (the default) so raw audio isn't retained after transcription.
+
+Wherever your output folder points (including a cloud-synced folder such as OneDrive or
+Dropbox), the transcripts and summaries written there follow that folder's own syncing — set
+`output_dir` to a local-only path if you don't want them copied to the cloud.
 
 ## ⚠️ Recording consent
 
