@@ -51,6 +51,7 @@ FONT_STATUS  = (SANS, 10, "bold")
 FONT_SECTION = (SANS, 10, "bold")
 FONT_LOG     = (MONO, 9)
 TITLE        = "Meeting Recorder"
+LEFT_W       = 400   # width of the controls column in the landscape (live) layout
 
 # Clear, self-explaining names for the live_mode setting (main-window dropdown).
 LIVE_LABELS = {
@@ -90,7 +91,7 @@ class App:
         self.root.title(TITLE)
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
-        self.root.minsize(440, 520)
+        self.root.minsize(LEFT_W + 16, 540)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         if osutil.MACOS:
             self.root.tk.createcommand("tk::mac::Quit", self._on_close)   # Cmd+Q
@@ -170,7 +171,7 @@ class App:
     def _build(self):
         self._setup_styles()
 
-        # ---- header strip -------------------------------------------------
+        # ---- header strip (full width) -----------------------------------
         header = tk.Frame(self.root, bg=BG_HEADER)
         header.pack(fill=tk.X)
         bar = tk.Frame(header, bg=BG_HEADER)
@@ -183,20 +184,25 @@ class App:
                                      bg=BG_HEADER, fg=TEXT_SUB)
         self._status_lbl.pack(side=tk.RIGHT)
 
-        # ---- body ---------------------------------------------------------
-        body = tk.Frame(self.root, bg=BG)
-        body.pack(fill=tk.BOTH, expand=True, padx=18)
+        # ---- main: a fixed-width control column on the left; the live
+        #      transcript / notes panels fill the right (in live modes). ----
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        left = tk.Frame(main, bg=BG, width=LEFT_W)
+        left.pack(side=tk.LEFT, fill=tk.Y)
+        left.pack_propagate(False)                 # keep a stable column width
+        col = tk.Frame(left, bg=BG)
+        col.pack(fill=tk.BOTH, expand=True, padx=16)
 
         self._timer_var = tk.StringVar(value="00:00")
-        tk.Label(body, textvariable=self._timer_var, font=FONT_TIMER,
+        tk.Label(col, textvariable=self._timer_var, font=FONT_TIMER,
                  bg=BG, fg=TEXT_MAIN).pack(pady=(14, 8))
-
-        self._btn = make_button(body, "Start Recording", self._toggle, BTN_START, BG,
-                                (SANS, 13, "bold"), width=22, height=2)
+        self._btn = make_button(col, "Start Recording", self._toggle, BTN_START, BG,
+                                (SANS, 13, "bold"), width=20, height=2)
         self._btn.pack(pady=(0, 16))
 
-        # model + live selectors (aligned in a two-column grid)
-        controls = tk.Frame(body, bg=BG)
+        controls = tk.Frame(col, bg=BG)
         controls.pack(fill=tk.X)
         controls.columnconfigure(1, weight=1)
         tk.Label(controls, text="Model", font=FONT_BODY, bg=BG,
@@ -217,54 +223,53 @@ class App:
         self._live_box.bind("<<ComboboxSelected>>", self._on_live_mode_changed)
 
         self._live_hint_var = tk.StringVar(value=LIVE_HINTS.get(self.settings["live_mode"], ""))
-        tk.Label(body, textvariable=self._live_hint_var, font=(SANS, 8), bg=BG, fg=TEXT_DIM,
-                 wraplength=460, justify="left", anchor="w").pack(fill=tk.X, pady=(3, 10))
+        tk.Label(col, textvariable=self._live_hint_var, font=(SANS, 8), bg=BG, fg=TEXT_DIM,
+                 wraplength=LEFT_W - 52, justify="left", anchor="w").pack(fill=tk.X, pady=(4, 10))
 
-        # ---- live area (embedded; shown only when a live mode is on) ------
-        self._build_live_area(body)
-
-        # ---- bottom bar: reserved at the bottom (side=BOTTOM) so it is never
-        #      pushed off-window by the expanding live area above it. -------
-        bottom = tk.Frame(body, bg=BG)
+        # bottom of the control column (pinned): status, actions, log
+        bottom = tk.Frame(col, bg=BG)
         bottom.pack(side=tk.BOTTOM, fill=tk.X)
-
         self._queue_var = tk.StringVar(value="")
         self._queue_lbl = tk.Label(bottom, textvariable=self._queue_var, font=FONT_BODY,
                                    bg=BG, fg=TEXT_SUB)
         self._queue_lbl.pack(pady=(2, 4))
         btn_row = tk.Frame(bottom, bg=BG)
-        btn_row.pack(pady=(0, 8))
+        btn_row.pack()
         self._pending_btn = self._small_button(btn_row, "Process pending", self._process_pending)
         self._small_button(btn_row, "Open folder", self._open_folder)
         self._small_button(btn_row, "Settings", self._open_settings)
         self._ontop_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(btn_row, text="On top", variable=self._ontop_var,
+        tk.Checkbutton(bottom, text="Keep window on top", variable=self._ontop_var,
                        command=self._toggle_ontop, font=(SANS, 9), bg=BG, fg=TEXT_DIM,
                        selectcolor=BG, activebackground=BG, activeforeground=TEXT_DIM,
-                       relief=tk.FLAT, bd=0).pack(side=tk.LEFT, padx=(8, 0))
+                       relief=tk.FLAT, bd=0).pack(pady=(5, 8))
         self._log_box = scrolledtext.ScrolledText(
             bottom, font=FONT_LOG, bg=BG_PANEL, fg=TEXT_SUB, insertbackground=TEXT_MAIN,
             relief=tk.FLAT, height=5, state=tk.DISABLED, padx=10, pady=6)
         self._log_box.pack(fill=tk.X)
         self._dir_var = tk.StringVar(value=self._saving_to_text())
         tk.Label(bottom, textvariable=self._dir_var, font=(SANS, 8), bg=BG_PANEL, fg=TEXT_DIM,
-                 anchor="w").pack(fill=tk.X)
+                 anchor="w", wraplength=LEFT_W - 36, justify="left").pack(fill=tk.X)
         tk.Frame(bottom, bg=BG, height=10).pack()
 
+        # the right-hand live panels (shown only when a live mode is on)
+        self._build_live_area(main)
         self._apply_live_layout(resize=True)
 
-    def _build_live_area(self, body):
-        self._live_frame = tk.Frame(body, bg=BG)
-        tk.Label(self._live_frame, text="Live transcript  (draft)", font=FONT_SECTION,
+    def _build_live_area(self, parent):
+        self._live_frame = tk.Frame(parent, bg=BG)
+        pad = tk.Frame(self._live_frame, bg=BG)
+        pad.pack(fill=tk.BOTH, expand=True, padx=(6, 16), pady=14)
+        tk.Label(pad, text="Live transcript  (draft)", font=FONT_SECTION,
                  bg=BG, fg=TEXT_MAIN).pack(anchor="w")
         self._live_text = scrolledtext.ScrolledText(
-            self._live_frame, font=(SANS, 10), bg=BG_PANEL, fg=TEXT_MAIN,
-            insertbackground=TEXT_MAIN, relief=tk.FLAT, wrap="word", height=6,
-            state=tk.DISABLED, padx=10, pady=8, spacing1=1, spacing3=2)
-        self._live_text.pack(fill=tk.BOTH, expand=True, pady=(3, 10))
+            pad, font=(SANS, 11), bg=BG_PANEL, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief=tk.FLAT, wrap="word", height=8, state=tk.DISABLED,
+            padx=12, pady=10, spacing1=1, spacing3=3)
+        self._live_text.pack(fill=tk.BOTH, expand=True, pady=(4, 12))
         self._live_text.tag_configure("placeholder", foreground=TEXT_DIM)
 
-        self._notes_frame = tk.Frame(self._live_frame, bg=BG)
+        self._notes_frame = tk.Frame(pad, bg=BG)
         nhdr = tk.Frame(self._notes_frame, bg=BG)
         nhdr.pack(fill=tk.X)
         tk.Label(nhdr, text="Notes", font=FONT_SECTION, bg=BG, fg=TEXT_MAIN).pack(side=tk.LEFT)
@@ -273,9 +278,9 @@ class App:
                                            active_bg=SURFACE_HI, padx=10, pady=3)
         self._live_notes_btn.pack(side=tk.RIGHT)
         self._live_notes = scrolledtext.ScrolledText(
-            self._notes_frame, font=(SANS, 10), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT,
-            wrap="word", height=6, state=tk.DISABLED, padx=10, pady=8, spacing1=1, spacing3=3)
-        self._live_notes.pack(fill=tk.BOTH, expand=True, pady=(3, 10))
+            self._notes_frame, font=(SANS, 11), bg=BG_PANEL, fg=TEXT_MAIN, relief=tk.FLAT,
+            wrap="word", height=8, state=tk.DISABLED, padx=12, pady=10, spacing1=1, spacing3=4)
+        self._live_notes.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
         self._configure_notes_tags()
 
     def _small_button(self, parent, text, command):
@@ -663,15 +668,14 @@ class App:
                   + ("" if mode == "off" else " - starts with the next recording."))
 
     def _apply_live_layout(self, resize: bool = False):
-        """Show or hide the embedded live transcript / notes to match the mode."""
+        """Show or hide the right-hand live panels to match the mode, and size
+        the window: narrow (controls only) when off, wide (with side panels) live."""
         mode = self.settings["live_mode"]
         show = mode != "off"
         notes = mode in ("transcript+notes", "auto-notes")
         if show:
             if not self._live_frame.winfo_manager():
-                # side=TOP fills the space between the controls above and the
-                # (already reserved) bottom bar below.
-                self._live_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                self._live_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             if notes and not self._notes_frame.winfo_manager():
                 self._notes_frame.pack(fill=tk.BOTH, expand=True)
             elif not notes:
@@ -681,7 +685,10 @@ class App:
         else:
             self._live_frame.pack_forget()
         if resize:
-            w, h = (460, 540) if not show else (560, 780) if notes else (560, 620)
+            if not show:
+                w, h = LEFT_W + 16, 560
+            else:
+                w, h = LEFT_W + 540, (660 if notes else 600)
             self.root.geometry(f"{w}x{h}")
 
     def _clear_live(self, recording: bool):
