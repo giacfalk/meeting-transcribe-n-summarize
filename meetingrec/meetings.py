@@ -106,10 +106,81 @@ def _linux_in_use(streams: list[dict], own_pid: int) -> set[str]:
     return apps
 
 
+# -- Windows: active capture sessions (Core Audio) -------------------------
+# Newer Windows builds (26xxx) stopped updating the CapabilityAccessManager
+# registry timestamps in real time, so the registry can no longer say what is
+# using the mic *right now*. The audio session API -- what drives the taskbar
+# mic indicator -- still can, so it is the primary signal; the registry above
+# is kept as a fallback for older builds (or if pycaw/comtypes is unavailable).
+_AUDIO_SESSION_ACTIVE = 1   # AudioSessionStateActive
+
+
+def _capture_apps_from_sessions(sessions, own_pid: int) -> set[str]:
+    """App names with an ACTIVE capture session, from (pid, state, name) triples."""
+    apps = set()
+    for pid, state, name in sessions:
+        if state != _AUDIO_SESSION_ACTIVE or not pid or pid == own_pid or not name:
+            continue
+        apps.add(name[:-4] if name.lower().endswith(".exe") else name)
+    return apps
+
+
+def _windows_capture_sessions():
+    """(pid, state, process-name) for every microphone capture session, or None
+    if the audio session API can't be reached (then the caller falls back)."""
+    try:
+        import comtypes
+        import psutil
+        from pycaw.api.mmdeviceapi import IMMDeviceEnumerator
+        from pycaw.constants import CLSID_MMDeviceEnumerator
+        from pycaw.pycaw import IAudioSessionControl2, IAudioSessionManager2
+    except Exception:
+        return None
+    comtypes.CoInitialize()
+    try:
+        enum = comtypes.CoCreateInstance(CLSID_MMDeviceEnumerator, IMMDeviceEnumerator,
+                                         comtypes.CLSCTX_INPROC_SERVER)
+        try:   # every active capture device (eCapture = 1, DEVICE_STATE_ACTIVE = 1)
+            collection = enum.EnumAudioEndpoints(1, 1)
+            devices = [collection.Item(i) for i in range(collection.GetCount())]
+        except Exception:
+            devices = [enum.GetDefaultAudioEndpoint(1, 1)]
+        sessions = []
+        for device in devices:
+            try:
+                mgr = device.Activate(IAudioSessionManager2._iid_, comtypes.CLSCTX_ALL,
+                                      None).QueryInterface(IAudioSessionManager2)
+                session_enum = mgr.GetSessionEnumerator()
+            except Exception:
+                continue
+            for i in range(session_enum.GetCount()):
+                try:
+                    control = session_enum.GetSession(i)
+                    state = control.GetState()
+                    pid = control.QueryInterface(IAudioSessionControl2).GetProcessId()
+                    name = psutil.Process(pid).name() if pid else ""
+                except Exception:
+                    continue
+                sessions.append((pid, state, name))
+        return sessions
+    except Exception:
+        return None
+    finally:
+        comtypes.CoUninitialize()
+
+
+def _windows_capture_apps(own_pid: int):
+    sessions = _windows_capture_sessions()
+    return None if sessions is None else _capture_apps_from_sessions(sessions, own_pid)
+
+
 def apps_using_microphone() -> set[str]:
     """Names of the other apps that are using the microphone right now."""
     if WINDOWS:
-        # From source, Windows logs the base interpreter rather than the venv's python.exe.
+        apps = _windows_capture_apps(os.getpid())
+        if apps is not None:
+            return apps
+        # Fallback: the consent-store registry (older Windows builds).
         own = (sys.executable, getattr(sys, "_base_executable", ""))
         return _windows_in_use(_windows_entries(), own)
     if LINUX:

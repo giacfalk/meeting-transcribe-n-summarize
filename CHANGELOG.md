@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- **"Offer to record when a call starts" works again on recent Windows 11 builds.** Newer
+  builds stopped updating the microphone-usage timestamps in the registry
+  (`CapabilityAccessManager`) in real time, so the app could no longer tell when a meeting
+  app began using the mic, and the prompt stopped appearing. Detection now uses the Windows
+  audio session API — the same signal behind the taskbar mic indicator — which reports active
+  microphone use reliably; the registry method stays as a fallback for older Windows. (Adds
+  the `pycaw` dependency on Windows.)
+
 ## 1.3.0
 
 ### New

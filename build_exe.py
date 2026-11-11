@@ -128,6 +128,8 @@ def build(icon: Path) -> Path:
     ]
     if WINDOWS:
         cmd.append(f"--icon={icon}")
+        # call-prompt detection uses the Core Audio session API via pycaw/comtypes
+        cmd += ["--collect-all", "pycaw", "--collect-all", "comtypes"]
     elif MACOS:   # PyInstaller converts the PNG to .icns with Pillow
         cmd += [f"--icon={logo}", "--osx-bundle-identifier", BUNDLE_ID]
     cmd.append(str(HERE / "meeting_recorder.py"))

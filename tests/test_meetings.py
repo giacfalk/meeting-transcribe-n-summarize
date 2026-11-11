@@ -24,6 +24,18 @@ def test_windows_registry_entries():
         == {"MSTeams", "Zoom"}
 
 
+def test_capture_apps_from_sessions():
+    sessions = [
+        (111, 1, "Zoom.exe"),             # active -> counted, ".exe" stripped
+        (222, 1, "ms-teams.exe"),         # active -> counted
+        (333, 0, "firefox.exe"),          # inactive session -> skipped
+        (444, 1, "MeetingRecorder.exe"),  # our own process -> skipped
+        (555, 1, ""),                     # unknown process name -> skipped
+        (0,   1, "ghost"),                # no pid -> skipped
+    ]
+    assert meetings._capture_apps_from_sessions(sessions, own_pid=444) == {"Zoom", "ms-teams"}
+
+
 def test_linux_streams():
     streams = [
         {"application.name": "Firefox", "application.process.id": "1200"},
