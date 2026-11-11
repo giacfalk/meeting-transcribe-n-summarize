@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
+
+### Changed
+- **Live transcript and notes now sit in side panels.** When a Live mode is on, the window
+  widens and shows the live transcript and the running notes to the *right* of the controls,
+  instead of stacked underneath them. The notes use a larger font and keep their formatted,
+  Markdown rendering, so they are easier to read during a meeting. With Live off, the window
+  stays a compact single column, and switching Live mode resizes the window to match.
 
 ### Fixes
 - **"Offer to record when a call starts" works again on recent Windows 11 builds.** Newer
