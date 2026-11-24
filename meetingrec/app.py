@@ -430,10 +430,22 @@ class App:
             self._tray = None
             self._show_window()
 
-    def _check_tray(self):
-        if self._tray is not None and self._tray.error:
+    def _check_tray(self, attempt: int = 0):
+        if self._tray is None:
+            return
+        if self._tray.error:
             self._log(f"Tray icon unavailable: {self._tray.error}")
             self._tray = None
+            return
+        if not self._tray.docked():
+            if attempt < 2:      # a real tray may be slow to dock; retry before giving up
+                self.root.after(2500, lambda: self._check_tray(attempt + 1))
+                return
+            self._log("No system tray on this desktop; tray icon and "
+                      "minimize-to-tray are disabled.")
+            self._tray.stop()
+            self._tray = None
+            self._show_window()   # never leave the window hidden with no icon to restore it
 
     def _apply_meeting_watch(self):
         want = self.settings["meeting_prompt"] and meetings.supported()
@@ -444,6 +456,10 @@ class App:
                 on_end=lambda app: self.root.after(0, self._call_ended, app),
             )
             self._watcher.start()
+            self._log("Watching for meeting apps that start using the microphone.")
+            if not meetings.capture_api_ok():
+                self._log("  Heads-up: the Core Audio detector isn't available, so detection "
+                          "falls back to the registry, which can miss meetings on Windows 11.")
         elif not want and self._watcher is not None:
             self._watcher.stop()
             self._watcher = None
@@ -474,8 +490,13 @@ class App:
     # ---- Meeting prompts ------------------------------------------------
 
     def _call_started(self, app: str):
-        if self._recording or app in self._declined:
+        if self._recording:
+            self._log(f"{app} started using the microphone (already recording).")
             return
+        if app in self._declined:
+            self._log(f"{app} started using the microphone (dismissed earlier; not asking).")
+            return
+        self._log(f"{app} started using the microphone - offering to record.")
         self._prompt(f"{app} is using the microphone",
                      "Record this meeting? Remember to ask everyone for their consent first.",
                      "Record", lambda: self._start(trigger=app),
@@ -484,6 +505,7 @@ class App:
             self._tray.notify(f"{app} is using the microphone. Record this meeting?")
 
     def _call_ended(self, app: str):
+        self._log(f"{app} stopped using the microphone.")
         self._declined.discard(app)
         if self._prompt_app == app and not self._recording:
             self._close_prompt()       # the call ended before anyone answered
@@ -494,18 +516,21 @@ class App:
 
     def _prompt(self, title: str, message: str, action_text: str, action,
                 on_decline=None, app: str | None = None, timeout_ms: int = 60_000):
-        """A small always-on-top question in the corner of the screen."""
+        """A small borderless always-on-top question in the corner of the screen."""
         self._close_prompt()
         win = tk.Toplevel(self.root)
-        win.title(TITLE)
-        win.configure(bg=BG)
+        win.withdraw()                 # build it hidden, reveal once placed (no corner flash)
+        win.overrideredirect(True)     # no title bar -- a proper popup
         win.resizable(False, False)
         win.attributes("-topmost", True)
-        tk.Label(win, text=title, font=(SANS, 11, "bold"), bg=BG, fg=TEXT_MAIN,
+        win.configure(bg=SURFACE_HI)   # 1px of this shows around the body as a hairline border
+        body = tk.Frame(win, bg=BG)
+        body.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        tk.Label(body, text=title, font=(SANS, 11, "bold"), bg=BG, fg=TEXT_MAIN,
                  wraplength=320, justify="left").pack(anchor="w", padx=16, pady=(14, 4))
-        tk.Label(win, text=message, font=FONT_BODY, bg=BG, fg=TEXT_DIM,
+        tk.Label(body, text=message, font=FONT_BODY, bg=BG, fg=TEXT_DIM,
                  wraplength=320, justify="left").pack(anchor="w", padx=16)
-        row = tk.Frame(win, bg=BG)
+        row = tk.Frame(body, bg=BG)
         row.pack(anchor="e", padx=16, pady=14)
 
         def decline():
@@ -520,12 +545,18 @@ class App:
         self._small_button(row, "Not now", decline)
         make_button(row, action_text, accept, BTN_START, BG, (SANS, 10, "bold"),
                     padx=12, pady=4).pack(side=tk.LEFT, padx=3)
-        win.protocol("WM_DELETE_WINDOW", decline)
+        win.protocol("WM_DELETE_WINDOW", decline)   # kept for programmatic/edge dismissal
         win.update_idletasks()
-        osutil.set_dark_titlebar(win)
         x = win.winfo_screenwidth() - win.winfo_reqwidth() - 24
         y = win.winfo_screenheight() - win.winfo_reqheight() - 72
         win.geometry(f"+{x}+{y}")
+        win.deiconify()      # reveal it, positioned (also brings it up if the app was minimized)
+        win.lift()
+        try:
+            win.bell()       # an audible cue, since with the tray off there's no toast
+        except Exception:
+            pass
+        osutil.flash_taskbar(self.root)   # and flash the taskbar, in case it's behind a call
         self._prompt_win, self._prompt_app = win, app
         self._prompt_timer = self.root.after(timeout_ms, decline)
 
@@ -664,8 +695,62 @@ class App:
             self._log(f"Could not save settings: {exc}")
         self._live_hint_var.set(LIVE_HINTS.get(mode, ""))
         self._apply_live_layout(resize=changed)
-        self._log(f"Live mode: {LIVE_LABELS.get(mode, mode)}"
-                  + ("" if mode == "off" else " - starts with the next recording."))
+        if changed and self._recording:
+            self._switch_live_while_recording(mode)   # take effect now, not next time
+        elif changed:
+            self._log(f"Live mode: {LIVE_LABELS.get(mode, mode)}"
+                      + ("" if mode == "off" else " - starts with the next recording."))
+
+    def _switch_live_while_recording(self, mode: str):
+        """Apply a Live-menu change to the recording in progress: start or stop the
+        live transcriber and the auto-notes timer, instead of waiting for the next one."""
+        if mode == "off":
+            self._cancel_live_notes()
+            self._teardown_live(in_background=True)
+            self._log("Live transcription stopped for this recording.")
+            return
+        if self._live is None:                 # was off: spin up a transcriber now
+            live = self._make_live_transcriber(self.settings)
+            if live is None:
+                return                         # no backend; _make_live_transcriber logged why
+            self._live = live
+            self._clear_live(recording=True)
+            if self._recorder is not None:
+                self._recorder.on_audio = live.feed_stereo
+            live.start()
+            self._log(f"Live {LIVE_LABELS.get(mode, mode)} is on for this recording.")
+        else:
+            self._log(f"Live mode: {LIVE_LABELS.get(mode, mode)}.")
+        if mode == "auto-notes":
+            if self._live_notes_timer is None:
+                self._schedule_live_notes()
+        else:
+            self._cancel_live_notes()
+
+    def _cancel_live_notes(self):
+        if self._live_notes_timer:
+            self.root.after_cancel(self._live_notes_timer)
+            self._live_notes_timer = None
+
+    def _teardown_live(self, in_background: bool):
+        """Detach the live transcriber from the recorder and stop it. Stopping runs
+        a final transcription pass, so off the UI thread when asked (in_background)."""
+        live = self._live
+        self._live = None
+        if self._recorder is not None:
+            self._recorder.on_audio = None
+        if live is None:
+            return
+        if in_background:
+            threading.Thread(target=self._stop_live_quietly, args=(live,), daemon=True).start()
+        else:
+            self._stop_live_quietly(live)
+
+    def _stop_live_quietly(self, live):
+        try:
+            live.stop()
+        except Exception as exc:
+            self._log_from_thread(f"Live transcription stop error: {exc}")
 
     def _apply_live_layout(self, resize: bool = False):
         """Show or hide the right-hand live panels to match the mode, and size

@@ -4,6 +4,7 @@ Windows and Linux only: on macOS pystray must own the main thread, which Tk
 already does there (the Dock icon covers the same need).
 """
 
+import logging
 import threading
 from pathlib import Path
 
@@ -18,6 +19,21 @@ def supported() -> bool:
         return True
     except Exception:   # not installed, or no display/tray backend
         return False
+
+
+def _looks_docked(visible: bool, backend_module: str, systray_manager) -> bool:
+    """Whether a pystray icon is really showing in a tray.
+
+    pystray's X11 (`_xorg`) backend sets ``visible = True`` even when there is
+    no XEmbed system tray to dock into (e.g. COSMIC/Wayland), so there trust it
+    only when a tray manager was actually found. Backends that raise on failure
+    (Windows, AppIndicator) are caught in ``_run`` and surface through ``error``.
+    """
+    if not visible:
+        return False
+    if backend_module.endswith("_xorg"):
+        return systray_manager is not None
+    return True
 
 
 def recording_badge(image):
@@ -43,6 +59,9 @@ class TrayIcon:
         import pystray
         from PIL import Image
 
+        # The X11 backend logs a full "Failed to dock icon" traceback on every
+        # update when no tray is present; we detect that ourselves via docked().
+        logging.getLogger("pystray").setLevel(logging.CRITICAL)
         self._idle = Image.open(logo).convert("RGBA")
         self._recording = recording_badge(self._idle)
         self._is_recording = is_recording
@@ -62,7 +81,15 @@ class TrayIcon:
 
     @property
     def running(self) -> bool:
-        return bool(self._thread and self._thread.is_alive() and self._icon.visible)
+        return bool(self._thread and self._thread.is_alive()
+                    and not self.error and self.docked())
+
+    def docked(self) -> bool:
+        """Whether the icon is actually showing in a system tray (see _looks_docked)."""
+        icon = self._icon
+        return _looks_docked(getattr(icon, "visible", False),
+                             type(icon).__module__,
+                             getattr(icon, "_systray_manager", None))
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run, daemon=True)

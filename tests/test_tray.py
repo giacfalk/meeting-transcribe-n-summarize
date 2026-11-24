@@ -11,6 +11,18 @@ from meetingrec import tray
 LOGO = Path(__file__).parent.parent / "assets" / "logo.png"
 
 
+def test_looks_docked_judges_each_backend():
+    # Not visible yet -> not docked, whatever the backend.
+    assert not tray._looks_docked(False, "pystray._xorg", object())
+    assert not tray._looks_docked(False, "pystray._win32", None)
+    # X11: "visible" is not enough -- a tray manager must have been found.
+    assert not tray._looks_docked(True, "pystray._xorg", None)      # COSMIC/Wayland case
+    assert tray._looks_docked(True, "pystray._xorg", object())
+    # Backends that raise on failure: visible is trustworthy.
+    assert tray._looks_docked(True, "pystray._win32", None)
+    assert tray._looks_docked(True, "pystray._appindicator", None)
+
+
 @pytest.mark.skipif(not tray.supported(), reason="no tray support on this system")
 def test_tray_icon_starts_switches_and_stops():
     recording = [False]

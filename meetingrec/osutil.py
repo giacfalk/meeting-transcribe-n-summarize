@@ -67,6 +67,34 @@ def set_dark_titlebar(window) -> None:
         pass
 
 
+def flash_taskbar(window) -> None:
+    """Flash the window's taskbar button until the user brings it to the front.
+
+    A reliable "look at me" cue when a corner prompt could be hidden behind a
+    fullscreen meeting. No-op off Windows (and if the window is already in front).
+    """
+    if not WINDOWS:
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        window.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+
+        class FLASHWINFO(ctypes.Structure):
+            _fields_ = [("cbSize", wintypes.UINT), ("hwnd", wintypes.HWND),
+                        ("dwFlags", wintypes.DWORD), ("uCount", wintypes.UINT),
+                        ("dwTimeout", wintypes.DWORD)]
+
+        flashw_all, flashw_timernofg = 0x3, 0xC   # caption + taskbar, until foreground
+        info = FLASHWINFO(ctypes.sizeof(FLASHWINFO), hwnd,
+                          flashw_all | flashw_timernofg, 0, 0)
+        ctypes.windll.user32.FlashWindowEx(ctypes.byref(info))
+    except Exception:
+        pass
+
+
 def open_path(path: Path) -> None:
     """Open a folder or file with the system's default app."""
     if WINDOWS:
