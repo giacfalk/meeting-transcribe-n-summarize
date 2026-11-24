@@ -97,6 +97,22 @@ def make_icon() -> Path:
 
 
 # -- PyInstaller build -------------------------------------------------------
+def _verify_detection_bundled(app_dir: Path) -> None:
+    """Fail the Windows build if the call-detection packages didn't make it into
+    the bundle. They are optional imports, so a missing one fails *silently* at
+    runtime -- the meeting prompts just never appear -- instead of crashing. That
+    shipped in v1.4.0; this guard makes sure it can't happen again unnoticed.
+    """
+    internal = app_dir / "_internal"
+    missing = [pkg for pkg in ("pycaw", "comtypes", "psutil")
+               if not (internal / pkg).exists()]
+    if missing:
+        print(f"\n[!] Call-detection packages missing from the build: {', '.join(missing)}.")
+        print("    Install them first (pinned in requirements-build.txt), then rebuild.")
+        sys.exit(1)
+    print("  Call detection bundled: pycaw, comtypes, psutil.")
+
+
 def build(icon: Path) -> Path:
     try:
         import PyInstaller  # noqa: F401
@@ -128,8 +144,9 @@ def build(icon: Path) -> Path:
     ]
     if WINDOWS:
         cmd.append(f"--icon={icon}")
-        # call-prompt detection uses the Core Audio session API via pycaw/comtypes
-        cmd += ["--collect-all", "pycaw", "--collect-all", "comtypes"]
+        # call-prompt detection uses the Core Audio session API via pycaw/comtypes/psutil
+        cmd += ["--collect-all", "pycaw", "--collect-all", "comtypes",
+                "--collect-all", "psutil"]
     elif MACOS:   # PyInstaller converts the PNG to .icns with Pillow
         cmd += [f"--icon={logo}", "--osx-bundle-identifier", BUNDLE_ID]
     cmd.append(str(HERE / "meeting_recorder.py"))
@@ -145,6 +162,8 @@ def build(icon: Path) -> Path:
         print(f"\n  Done!  {app}")
         return app
     exe = DIST / "MeetingRecorder" / ("MeetingRecorder.exe" if WINDOWS else "MeetingRecorder")
+    if WINDOWS:
+        _verify_detection_bundled(exe.parent)
     if not WINDOWS:
         for extra in ("meeting-recorder.desktop", "install.sh"):
             shutil.copy(HERE / "packaging" / "linux" / extra, exe.parent)

@@ -26,6 +26,22 @@ def supported() -> bool:
     return WINDOWS or LINUX
 
 
+def capture_api_ok() -> bool:
+    """On Windows, whether the Core Audio session API (pycaw/comtypes/psutil) is
+    importable. When it is not -- e.g. a packaged build that forgot to bundle them --
+    detection silently falls back to the stale registry method and can miss meetings,
+    so the app logs a heads-up. Always True off Windows, which uses another method."""
+    if not WINDOWS:
+        return True
+    try:
+        import comtypes  # noqa: F401
+        import psutil  # noqa: F401
+        from pycaw.pycaw import IAudioSessionManager2  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 def matches(app: str, patterns: list[str]) -> bool:
     """Whether an app name matches any pattern (case-insensitive substring, "*" = any)."""
     name = app.lower()

@@ -10,6 +10,7 @@ av==17.0.1
 certifi==2026.7.22
 cffi==2.0.0
 colorama==0.4.6
+comtypes==1.5.0           # call detection (Core Audio); Windows only
 ctranslate2==4.7.1
 docstring_parser==0.18.0
 faster-whisper==1.2.1
@@ -33,6 +34,8 @@ packaging==26.3
 pefile==2024.8.26
 pillow==12.2.0
 protobuf==7.36.2
+psutil==7.2.2             # call detection: PID -> process name; Windows only
+pycaw==20260927           # call detection: which apps are capturing the mic; Windows only
 pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
