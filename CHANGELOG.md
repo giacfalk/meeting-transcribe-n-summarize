@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.4.1
+
+### Fixes
+- **"Offer to record when a call starts" now actually works in the installed Windows app.**
+  The v1.4.0 Windows build was packaged without the microphone-detection libraries
+  (`pycaw`, `comtypes`, `psutil`): they were missing from the pinned build dependencies, so
+  the frozen app silently fell back to the (now-stale) registry method and never showed the
+  prompt — even though it worked when run from source. They are now pinned and bundled, and
+  the build fails loudly if they are ever left out again.
+- **The meeting prompt is now a proper borderless pop-up** (no title bar), raises itself,
+  beeps and briefly flashes the taskbar, so it is hard to miss over a full-screen call.
+  Every microphone detection is also written to the log now, to make this easy to diagnose.
+
+### Changed
+- **The Live menu takes effect immediately while recording.** Switching it mid-recording now
+  starts or stops the live transcript and notes straight away, instead of only applying to
+  the next recording.
+
+### Linux
+- **The tray icon no longer risks hiding the window for good.** On desktops without a real
+  system tray (e.g. COSMIC/Wayland), the icon silently failed to dock but still reported
+  itself as running, so *minimize to tray* could withdraw the window with no way to bring it
+  back. The app now detects that the icon isn't really there, disables the tray and
+  minimize-to-tray, and keeps the window visible. (Thanks to the detailed report in #9.)
+
 ## 1.4.0
 
 ### Changed
