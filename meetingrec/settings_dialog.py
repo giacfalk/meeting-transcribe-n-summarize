@@ -140,6 +140,10 @@ class SettingsDialog(tk.Toplevel):
         self._row(f, "Auto-notes every", ttk.Spinbox(f, from_=60, to=3600, increment=60, width=8,
                                                     textvariable=self.v_live_notes_interval),
                   "seconds (only in the auto-notes live mode)")
+        self.v_live_catchup = self._check(
+            f, "Catch up on earlier audio when I turn Live on mid-meeting", "live_catchup",
+            "Also transcribes the already-recorded part in the background, so notes cover the "
+            "whole meeting. CPU-heavy on long meetings.")
 
     def _build_audio(self, f):
         self.v_mic = tk.StringVar(value=self._s["microphone"] or DEFAULT_MIC)
@@ -285,6 +289,7 @@ class SettingsDialog(tk.Toplevel):
             "live_model": self.v_live_model.get().strip() or "base",
             "live_interval": live_interval,
             "live_notes_interval": live_notes_interval,
+            "live_catchup": self.v_live_catchup.get(),
             "speaker_labels": self.v_labels.get(),
             "mic_label": mic_label or "Me",
             "others_label": others_label or "Others",

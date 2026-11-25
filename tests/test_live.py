@@ -85,6 +85,29 @@ def test_feed_stereo_mixes_to_one_channel():
     assert ft.calls == 1 and ft.windows[0] == len(left)
 
 
+def test_start_offset_shifts_live_segment_times():
+    ft = FakeTranscriber()
+    live = LiveTranscriber(transcriber=ft, silence_threshold=0.0, min_window=0.0,
+                           start_offset=120.0)
+    live.feed(tone(5))
+    live._process(final=True)
+    assert round(live.segments[0].start) == 120   # new audio lines up after the catch-up part
+
+
+def test_add_segments_merges_catchup_in_time_order():
+    ft = FakeTranscriber()
+    live = LiveTranscriber(transcriber=ft, silence_threshold=0.0, min_window=0.0,
+                           start_offset=10.0)
+    live.feed(tone(2))
+    live._process(final=True)                       # a live segment at t=10
+    live.add_segments([Segment(5.0, 10.0, "earlier b"), Segment(0.0, 5.0, "earlier a")])
+    starts = [round(s.start) for s in live.segments]
+    assert starts == sorted(starts)                 # kept in time order
+    assert starts[0] == 0 and starts[-1] == 10
+    text = live.transcript_text()
+    assert text.index("earlier a") < text.index("earlier b") < text.index("chunk1")
+
+
 def test_worker_thread_processes_then_stop_flushes():
     ft = FakeTranscriber()
     live = LiveTranscriber(transcriber=ft, interval=0.5, min_window=0.0, silence_threshold=0.0)

@@ -31,7 +31,7 @@ class LiveTranscriber:
                  language: str | None = None, interval: float = 15.0,
                  min_window: float = 6.0, silence_threshold: float = 0.0,
                  sample_rate: int = SAMPLE_RATE, on_segments=None, log=print,
-                 transcriber: Transcriber | None = None):
+                 start_offset: float = 0.0, transcriber: Transcriber | None = None):
         self.model = model or "base"
         self.device = device
         self.language = language or None
@@ -45,7 +45,10 @@ class LiveTranscriber:
 
         self._pending: list[np.ndarray] = []
         self._pending_frames = 0
-        self._consumed = 0.0            # seconds of audio already transcribed (time offset)
+        # seconds of audio already accounted for (time offset for new segments). When Live
+        # is switched on mid-recording this starts at the elapsed time, so live segments line
+        # up with the catch-up pass that fills in everything before it.
+        self._consumed = start_offset
         self._lock = threading.Lock()         # guards the pending buffer
         self._segments: list[Segment] = []
         self._seg_lock = threading.Lock()     # guards the segment list
@@ -95,6 +98,16 @@ class LiveTranscriber:
     def segments(self) -> list[Segment]:
         with self._seg_lock:
             return list(self._segments)
+
+    def add_segments(self, segs: list[Segment]) -> None:
+        """Merge in segments produced elsewhere (e.g. a catch-up pass over the audio
+        recorded before Live was switched on), keeping the list in time order so the
+        transcript and any notes read correctly."""
+        if not segs:
+            return
+        with self._seg_lock:
+            self._segments.extend(segs)
+            self._segments.sort(key=lambda s: s.start)
 
     def transcript_text(self) -> str:
         return format_transcript(self.segments)

@@ -33,6 +33,9 @@ DEFAULTS: dict = {
     "live_model": "base",           # Whisper model for the live draft (small/fast is best)
     "live_interval": 15,            # seconds between live transcription passes
     "live_notes_interval": 300,     # seconds between auto-notes refreshes (auto-notes mode)
+    "live_catchup": True,           # turning Live on mid-recording also transcribes the part
+                                    # already recorded, in the background (CPU-heavy on long
+                                    # meetings; turn off if it bogs the machine down)
     "microphone": "",               # "" = the system default input; or part of a device name
     "system_audio": "",             # "" = loopback of the default output; or part of the
                                     # name of an input device to record instead (e.g. BlackHole)

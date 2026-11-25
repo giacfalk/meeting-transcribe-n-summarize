@@ -67,6 +67,24 @@ def set_dark_titlebar(window) -> None:
         pass
 
 
+def set_rounded_corners(window, small: bool = False) -> None:
+    """Give a window rounded corners on Windows 11. No-op elsewhere (older Windows
+    just keeps square corners). Works for borderless (overrideredirect) windows too."""
+    if not WINDOWS:
+        return
+    try:
+        import ctypes
+
+        window.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
+        # DWMWA_WINDOW_CORNER_PREFERENCE = 33; DWMWCP_ROUND = 2, DWMWCP_ROUNDSMALL = 3
+        pref = ctypes.c_int(3 if small else 2)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(pref),
+                                                    ctypes.sizeof(pref))
+    except Exception:
+        pass
+
+
 def flash_taskbar(window) -> None:
     """Flash the window's taskbar button until the user brings it to the front.
 

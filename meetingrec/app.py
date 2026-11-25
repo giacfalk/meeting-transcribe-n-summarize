@@ -52,6 +52,7 @@ FONT_SECTION = (SANS, 10, "bold")
 FONT_LOG     = (MONO, 9)
 TITLE        = "Meeting Recorder"
 LEFT_W       = 400   # width of the controls column in the landscape (live) layout
+_CATCHUP_MIN_SECONDS = 5   # don't bother catching up on less than this much already recorded
 
 # Clear, self-explaining names for the live_mode setting (main-window dropdown).
 LIVE_LABELS = {
@@ -497,12 +498,12 @@ class App:
             self._log(f"{app} started using the microphone (dismissed earlier; not asking).")
             return
         self._log(f"{app} started using the microphone - offering to record.")
+        # The in-window prompt below is the only cue, on purpose: a tray toast here would
+        # just duplicate it. (The minimize-to-tray hint toast is a separate thing.)
         self._prompt(f"{app} is using the microphone",
                      "Record this meeting? Remember to ask everyone for their consent first.",
                      "Record", lambda: self._start(trigger=app),
                      on_decline=lambda: self._declined.add(app), app=app)
-        if self._tray is not None:
-            self._tray.notify(f"{app} is using the microphone. Record this meeting?")
 
     def _call_ended(self, app: str):
         self._log(f"{app} stopped using the microphone.")
@@ -550,10 +551,11 @@ class App:
         x = win.winfo_screenwidth() - win.winfo_reqwidth() - 24
         y = win.winfo_screenheight() - win.winfo_reqheight() - 72
         win.geometry(f"+{x}+{y}")
+        osutil.set_rounded_corners(win)   # Windows 11 rounded corners
         win.deiconify()      # reveal it, positioned (also brings it up if the app was minimized)
         win.lift()
         try:
-            win.bell()       # an audible cue, since with the tray off there's no toast
+            win.bell()       # an audible cue to go with the pop-up
         except Exception:
             pass
         osutil.flash_taskbar(self.root)   # and flash the taskbar, in case it's behind a call
@@ -670,8 +672,11 @@ class App:
 
     # ---- Live transcription ---------------------------------------------
 
-    def _make_live_transcriber(self, s: dict):
-        """A LiveTranscriber for this recording, or None if live mode is off."""
+    def _make_live_transcriber(self, s: dict, start_offset: float = 0.0):
+        """A LiveTranscriber for this recording, or None if live mode is off.
+
+        start_offset is the recording's elapsed time when Live is switched on mid-way,
+        so new segments line up after the catch-up pass fills in the earlier part."""
         if s["live_mode"] == "off":
             return None
         if BACKEND is None:
@@ -681,7 +686,7 @@ class App:
             model=s["live_model"] or "base", device=s["device"],
             language=s["language"].strip() or None,
             interval=max(2, int(s["live_interval"])),
-            silence_threshold=s["silence_threshold"],
+            silence_threshold=s["silence_threshold"], start_offset=start_offset,
             on_segments=self._on_live_segments, log=self._log_from_thread)
 
     def _on_live_mode_changed(self, _event=None):
@@ -710,7 +715,8 @@ class App:
             self._log("Live transcription stopped for this recording.")
             return
         if self._live is None:                 # was off: spin up a transcriber now
-            live = self._make_live_transcriber(self.settings)
+            elapsed = self._recorder.duration_seconds if self._recorder is not None else 0.0
+            live = self._make_live_transcriber(self.settings, start_offset=elapsed)
             if live is None:
                 return                         # no backend; _make_live_transcriber logged why
             self._live = live
@@ -719,6 +725,9 @@ class App:
                 self._recorder.on_audio = live.feed_stereo
             live.start()
             self._log(f"Live {LIVE_LABELS.get(mode, mode)} is on for this recording.")
+            if (self.settings["live_catchup"] and elapsed >= _CATCHUP_MIN_SECONDS
+                    and self._recording_wav is not None):
+                self._start_catchup(live, self._recording_wav, elapsed)
         else:
             self._log(f"Live mode: {LIVE_LABELS.get(mode, mode)}.")
         if mode == "auto-notes":
@@ -751,6 +760,47 @@ class App:
             live.stop()
         except Exception as exc:
             self._log_from_thread(f"Live transcription stop error: {exc}")
+
+    # ---- Catch-up (transcribe the part recorded before Live was turned on) ----
+
+    def _start_catchup(self, live, wav, elapsed: float):
+        """Transcribe the already-recorded audio in the background, so the live
+        transcript (and any notes) also cover what was said before Live was on."""
+        self._log(f"Catching up on the earlier {elapsed / 60:.0f} min in the background "
+                  "(turn this off in Settings > Transcription if it's too CPU-heavy).")
+        threading.Thread(target=self._catchup_worker, args=(live, wav, dict(self.settings)),
+                         daemon=True).start()
+
+    def _catchup_worker(self, live, wav, s: dict):
+        try:
+            segs = transcribe_recording(
+                wav, Transcriber(log=self._log_from_thread),
+                model=s["live_model"] or "base", device=s["device"],
+                language=s["language"].strip() or None,
+                speaker_labels=False, silence_threshold=s["silence_threshold"])
+        except Exception as exc:
+            self._log_from_thread(f"Catch-up transcription failed: {exc}")
+            return
+        self.root.after(0, self._finish_catchup, live, segs)
+
+    def _finish_catchup(self, live, segs):
+        if self._live is not live:
+            return      # Live was turned off or the recording stopped: discard the catch-up
+        if segs:
+            live.add_segments(segs)          # so notes see the whole meeting
+            self._prepend_live_segments(segs)  # and show it above the live lines, in order
+        self._log(f"Caught up: added {len(segs)} earlier line(s) to the live transcript.")
+
+    def _prepend_live_segments(self, segs):
+        """Insert catch-up segments at the top of the transcript (they precede the live ones)."""
+        if self._live_text is None or not self._live_text.winfo_exists():
+            return
+        lines = "".join(f"[{format_timestamp(s.start)}]  "
+                        f"{s.speaker + ': ' if s.speaker else ''}{s.text}\n" for s in segs)
+        self._live_text.config(state=tk.NORMAL)
+        self._live_text.insert("1.0", lines)
+        self._live_text.config(state=tk.DISABLED)
+        self._live_has_text = True           # keep the next live line from wiping the placeholder
 
     def _apply_live_layout(self, resize: bool = False):
         """Show or hide the right-hand live panels to match the mode, and size
