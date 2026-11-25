@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>document.documentElement.classList.add('js')</script>
 <title>Meeting Recorder — private, local meeting transcription</title>
 <meta name="description" content="A one-button desktop app that records your meetings, transcribes them locally, labels who said what, and writes the summary. Your audio never leaves your machine. Windows, macOS, Linux.">
 <link rel="icon" href="assets/logo.png">
@@ -92,6 +93,44 @@
   .hero .meta{margin-top:22px;color:#9aa0c0;font-size:.95rem;font-weight:600}
   .hero .meta b{color:#fff}
 
+  /* free & donor-supported pill */
+  .free-pill{display:inline-flex;align-items:center;gap:8px;margin-top:22px;padding:9px 18px;border-radius:999px;
+    background:rgba(166,227,161,.12);border:1px solid rgba(166,227,161,.42);color:#d4edd0;font-weight:700;font-size:.9rem}
+
+  /* demo (app mockup) */
+  .demo{padding-top:16px}
+  .app{max-width:860px;margin:0 auto;background:#1e1e2e;border:1px solid #313244;border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(20,20,40,.35);text-align:left}
+  .app .titlebar{display:flex;align-items:center;gap:8px;background:#11111b;padding:11px 16px;border-bottom:1px solid #313244}
+  .app .tdot{width:11px;height:11px;border-radius:50%;background:#45475a}
+  .app .tdot.r{background:#f38ba8}.app .tdot.y{background:#f9e2af}.app .tdot.g{background:#a6e3a1}
+  .app .ttl{color:#a6adc8;font-size:.85rem;font-weight:600;margin-left:8px}
+  .app .rec{margin-left:auto;color:#f38ba8;font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+  .app .rec::before{content:"";width:8px;height:8px;border-radius:50%;background:#f38ba8;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+  .app .body{display:grid;grid-template-columns:1.5fr 1fr;gap:1px;background:#313244}
+  .app .pane{background:#1e1e2e;padding:16px 18px;min-height:236px}
+  .app .plabel{color:#7f849c;font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:13px}
+  .app .line{font-size:.92rem;line-height:1.5;margin-bottom:9px;color:#cdd6f4}
+  .app .line .ts{color:#7f849c;font-variant-numeric:tabular-nums;margin-right:4px;font-size:.82rem}
+  .app .line .me{color:#89b4fa;font-weight:700}
+  .app .line .ot{color:#a6e3a1;font-weight:700}
+  .app .cursor{display:inline-block;width:7px;height:15px;background:#89b4fa;vertical-align:-2px;margin-left:3px;animation:blink 1.05s step-end infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+  .app .note h4{margin:0 0 9px;color:#cdd6f4;font-size:.95rem}
+  .app .note ul{margin:0;padding-left:18px;color:#a6adc8;font-size:.88rem;line-height:1.65}
+  .app .note b{color:#cdd6f4}
+  @media(max-width:620px){.app .body{grid-template-columns:1fr}}
+  /* animated line-by-line reveal (progressive enhancement; static if no JS) */
+  .js .demo .line{opacity:0;transform:translateY(8px)}
+  .demo.reveal .line{opacity:1;transform:none;transition:opacity .45s ease,transform .45s ease}
+  .demo.reveal .line:nth-child(2){transition-delay:.45s}
+  .demo.reveal .line:nth-child(3){transition-delay:.9s}
+  .demo.reveal .line:nth-child(4){transition-delay:1.35s}
+  .demo.reveal .line:nth-child(5){transition-delay:1.8s}
+  .demo.reveal .line:nth-child(6){transition-delay:2.25s}
+  @media(prefers-reduced-motion:reduce){.js .demo .line{opacity:1;transform:none}}
+
   /* sections */
   section{padding:68px 0}
   .soft{background:var(--bg-soft)}
@@ -170,8 +209,47 @@
       <a class="btn btn-ghost" href="#support">♥ Support</a>
     </div>
     <div class="meta"><b>Windows</b> · <b>macOS</b> · <b>Linux</b> &nbsp;•&nbsp; One button &nbsp;•&nbsp; 100% local transcription</div>
+    <div class="free-pill">💛 100% free &amp; donor‑supported — no subscriptions, no ads, no selling your data</div>
   </div>
 </header>
+
+<section class="demo">
+  <div class="wrap">
+    <h2>See it in action</h2>
+    <p class="lead">Record, and the transcript builds as you talk — each line labelled by speaker. A summary is one click away.</p>
+    <div class="app">
+      <div class="titlebar">
+        <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
+        <span class="ttl">Meeting Recorder</span>
+        <span class="rec">REC 02:14</span>
+      </div>
+      <div class="body">
+        <div class="pane">
+          <div class="plabel">Live transcript</div>
+          <div class="lines">
+            <div class="line"><span class="ts">[00:03]</span> <span class="me">Me:</span> Let's kick off the Q3 planning review — can everyone see my screen?</div>
+            <div class="line"><span class="ts">[00:08]</span> <span class="ot">Others:</span> Yep, looks good. Shall we start with the roadmap?</div>
+            <div class="line"><span class="ts">[00:14]</span> <span class="me">Me:</span> Sure. The big question is whether we ship the beta on the 14th.</div>
+            <div class="line"><span class="ts">[00:21]</span> <span class="ot">Others:</span> We're close — release notes are the only blocker.</div>
+            <div class="line"><span class="ts">[00:27]</span> <span class="me">Me:</span> Great. Sam, can you draft those by Thursday?</div>
+            <div class="line"><span class="ts">[00:31]</span> <span class="ot">Others:</span> On it.<span class="cursor"></span></div>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="plabel">Notes</div>
+          <div class="note">
+            <h4>Q3 planning review</h4>
+            <ul>
+              <li>Reviewed the roadmap and beta readiness.</li>
+              <li><b>Decision:</b> ship the beta on the 14th.</li>
+              <li><b>Action:</b> Sam to draft the release notes by Thursday.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
@@ -242,7 +320,7 @@
 <section id="support">
   <div class="wrap">
     <h2>Support the project</h2>
-    <p class="lead">Meeting Recorder is free for noncommercial use and built in spare time. If it saves you time, a small contribution keeps it improving.</p>
+    <p class="lead">Meeting Recorder is free, and kept going by donations — not ads, subscriptions, or selling your data. If it saves you time, a small contribution keeps it improving.</p>
     <div class="support-ctas">
       <a class="btn btn-pink" href="https://github.com/sponsors/giacfalk">♥ Sponsor on GitHub</a>
       <a class="btn btn-primary" href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR">Donate via PayPal</a>
@@ -262,6 +340,20 @@
     <div class="warn">⚠️ Record responsibly — always get the consent of everyone in the meeting.</div>
   </div>
 </footer>
+
+<script>
+  (function () {
+    var demo = document.querySelector('.demo');
+    if (!demo) return;
+    if (!('IntersectionObserver' in window)) { demo.classList.add('reveal'); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { demo.classList.add('reveal'); io.disconnect(); }
+      });
+    }, { threshold: 0.25 });
+    io.observe(demo);
+  })();
+</script>
 
 </body>
 </html>
