@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Recorder — private, local meeting transcription</title>
+<meta name="description" content="A one-button desktop app that records your meetings, transcribes them locally, labels who said what, and writes the summary. Your audio never leaves your machine. Windows, macOS, Linux.">
+<link rel="icon" href="assets/logo.png">
+<meta property="og:title" content="Meeting Recorder">
+<meta property="og:description" content="Records your meetings, transcribes them on your own machine, tells you who said what, and writes the summary. Your audio never leaves your computer.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://raw.githubusercontent.com/giacfalk/meeting-transcribe-n-summarize/main/assets/logo.png">
+<style>
+  :root{
+    --red:#e53935; --red-dark:#b71c1c; --pink:#ea4aaa;
+    --ink:#15161c; --muted:#5c5f72; --line:#e7e7ef;
+    --bg:#ffffff; --bg-soft:#f6f6fb; --crust:#0f1020;
+    --radius:16px; --maxw:1080px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  img{max-width:100%}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;gap:18px;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none}
+  .brand img{width:28px;height:28px}
+  .nav .spacer{flex:1}
+  .nav a.link{text-decoration:none;color:var(--muted);font-weight:600;font-size:.95rem}
+  .nav a.link:hover{color:var(--ink)}
+  @media(max-width:640px){.nav a.link{display:none}}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;text-decoration:none;
+    padding:12px 20px;border-radius:999px;border:1px solid transparent;transition:transform .08s ease,box-shadow .2s ease;font-size:1rem}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:linear-gradient(180deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 8px 24px rgba(229,57,53,.35)}
+  .btn-ghost{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+  .btn-pink{background:var(--pink);color:#fff}
+  .btn-dark{background:var(--ink);color:#fff}
+  .btn-sm{padding:9px 16px;font-size:.92rem}
+
+  /* hero */
+  header.hero{background:radial-gradient(1200px 600px at 50% -10%,#23253f 0%,var(--crust) 55%);color:#fff;text-align:center;padding:70px 0 84px}
+  .hero .logo{width:92px;height:92px;filter:drop-shadow(0 10px 30px rgba(229,57,53,.45))}
+  .hero h1{font-size:clamp(2.2rem,6vw,3.6rem);margin:18px 0 6px;letter-spacing:-.02em;font-weight:800}
+  .hero p.tag{font-size:clamp(1.05rem,2.6vw,1.3rem);color:#c8cbe0;max-width:640px;margin:0 auto 10px}
+  .hero .ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .hero .meta{margin-top:22px;color:#9aa0c0;font-size:.95rem;font-weight:600}
+  .hero .meta b{color:#fff}
+
+  /* sections */
+  section{padding:68px 0}
+  .soft{background:var(--bg-soft)}
+  h2{font-size:clamp(1.6rem,3.5vw,2.1rem);letter-spacing:-.02em;margin:0 0 10px;text-align:center}
+  .lead{color:var(--muted);text-align:center;max-width:640px;margin:0 auto 40px;font-size:1.08rem}
+
+  /* privacy band */
+  .band{background:linear-gradient(180deg,#fff,#fff);border:1px solid var(--line);border-radius:var(--radius);
+    padding:34px;display:flex;gap:22px;align-items:flex-start;box-shadow:0 10px 40px rgba(20,20,40,.05)}
+  .band .lock{font-size:2.2rem;line-height:1}
+  .band h3{margin:.1rem 0 .4rem;font-size:1.3rem}
+  .band p{margin:0;color:var(--muted)}
+  @media(max-width:560px){.band{flex-direction:column;gap:12px;padding:24px}}
+
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:transform .12s ease,box-shadow .2s ease}
+  .card:hover{transform:translateY(-3px);box-shadow:0 14px 36px rgba(20,20,40,.08)}
+  .card .ico{font-size:1.7rem}
+  .card h3{margin:.6rem 0 .3rem;font-size:1.12rem}
+  .card p{margin:0;color:var(--muted);font-size:.97rem}
+
+  /* download */
+  .dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:18px}
+  .dl .card{text-align:center}
+  .dl .plat{font-weight:700;font-size:1.12rem;margin:.2rem 0}
+  .dl .sub{color:var(--muted);font-size:.9rem;margin-bottom:14px}
+  .note{text-align:center;color:var(--muted);font-size:.92rem}
+
+  /* support */
+  #support{background:radial-gradient(900px 500px at 50% 0%,#2a2340 0%,var(--crust) 60%);color:#fff}
+  #support h2{color:#fff}
+  #support .lead{color:#c8cbe0}
+  .support-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:8px 0 22px}
+  .support-note{text-align:center;color:#c8cbe0;max-width:620px;margin:0 auto;font-size:.98rem}
+  .support-note a{color:#fff;font-weight:700}
+
+  /* footer */
+  footer{background:var(--crust);color:#9aa0c0;text-align:center;padding:40px 0;font-size:.92rem;border-top:1px solid rgba(255,255,255,.08)}
+  footer a{color:#c8cbe0;text-decoration:none;font-weight:600}
+  footer a:hover{color:#fff}
+  footer .warn{color:#f0b7b5;margin-top:10px}
+  .sep{opacity:.4;margin:0 8px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="assets/logo.png" alt=""> Meeting Recorder</a>
+    <span class="spacer"></span>
+    <a class="link" href="#features">Features</a>
+    <a class="link" href="#download">Download</a>
+    <a class="link" href="#support">Support</a>
+    <a class="link" href="https://github.com/giacfalk/meeting-transcribe-n-summarize">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <img class="logo" src="assets/logo.png" alt="Meeting Recorder logo">
+    <h1>Meeting Recorder</h1>
+    <p class="tag">Records your meetings, transcribes them <b>on your own machine</b>, tells you who said what, and writes the summary for you.</p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="#download">⬇ Download free</a>
+      <a class="btn btn-ghost" href="#support">♥ Support</a>
+    </div>
+    <div class="meta"><b>Windows</b> · <b>macOS</b> · <b>Linux</b> &nbsp;•&nbsp; One button &nbsp;•&nbsp; 100% local transcription</div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="band">
+      <div class="lock">🔒</div>
+      <div>
+        <h3>Private by design</h3>
+        <p>Transcription runs locally with <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a>. No bot joins your call, no audio is uploaded, and nothing is stored on someone else's server. The only thing that can go online is the text sent to <em>summarize</em> it — and even that can run fully offline with a local model through <a href="https://ollama.com">Ollama</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="soft" id="features">
+  <div class="wrap">
+    <h2>Everything in one quiet little app</h2>
+    <p class="lead">No plugins, no accounts, no bots in your meeting. Just record, and get a clean, speaker-labelled transcript and a summary.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">🎙️</div><h3>One button</h3><p>Click <b>Start Recording</b>, then <b>Stop</b>. That's all you have to do.</p></div>
+      <div class="card"><div class="ico">🧑‍🤝‍🧑</div><h3>Who said what</h3><p>Your microphone and the system audio are recorded on separate channels, so every line is labelled <b>Me</b> or <b>Others</b>.</p></div>
+      <div class="card"><div class="ico">💻</div><h3>Local transcription</h3><p>faster-whisper runs on your machine, with automatic language detection and timestamps. The audio never leaves it.</p></div>
+      <div class="card"><div class="ico">📝</div><h3>Automatic summaries</h3><p>Markdown notes — overview, key points, decisions, action items — from Claude, the Anthropic API, or a fully local model.</p></div>
+      <div class="card"><div class="ico">🔔</div><h3>Offers to record</h3><p>When Zoom, Teams or Meet start using the mic, a small prompt asks whether to record. It never records by itself.</p></div>
+      <div class="card"><div class="ico">⚡</div><h3>Live transcript</h3><p>Optionally watch a rough transcript build up as you talk, and get running notes on the fly — on by choice, off by default.</p></div>
+      <div class="card"><div class="ico">💾</div><h3>Crash-safe</h3><p>Audio is written to disk while you record, so a crash or power cut loses only the last couple of seconds.</p></div>
+      <div class="card"><div class="ico">🖥️</div><h3>Works everywhere</h3><p>Windows, macOS and Linux. A tray icon, a global hotkey, <code>.srt</code> subtitles and optional GPU transcription.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="lead">Free for personal and any noncommercial use. Pick your platform — the latest release is on GitHub.</p>
+    <div class="dl">
+      <div class="card">
+        <div class="ico">🪟</div><div class="plat">Windows</div>
+        <div class="sub">10 / 11 · installer (recommended)</div>
+        <a class="btn btn-primary btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Get the installer</a>
+      </div>
+      <div class="card">
+        <div class="ico">🍎</div><div class="plat">macOS</div>
+        <div class="sub">Apple Silicon · experimental</div>
+        <a class="btn btn-dark btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Download</a>
+      </div>
+      <div class="card">
+        <div class="ico">🐧</div><div class="plat">Linux</div>
+        <div class="sub">x64 · experimental</div>
+        <a class="btn btn-dark btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Download</a>
+      </div>
+    </div>
+    <p class="note">The builds aren't code-signed yet — on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time.<br>⚠️ Always get everyone's consent before recording a meeting.</p>
+  </div>
+</section>
+
+<section id="support">
+  <div class="wrap">
+    <h2>Support the project</h2>
+    <p class="lead">Meeting Recorder is free for noncommercial use and built in spare time. If it saves you time, a small contribution keeps it improving.</p>
+    <div class="support-ctas">
+      <a class="btn btn-pink" href="https://github.com/sponsors/giacfalk">♥ Sponsor on GitHub</a>
+      <a class="btn btn-primary" href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR">Donate via PayPal</a>
+    </div>
+    <p class="support-note">Using it commercially? A commercial license is available — email <a href="mailto:giacomo.falchetta@gmail.com">giacomo.falchetta@gmail.com</a>. Starring the <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize">repo</a> helps too. Thank you! 🙏</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize">GitHub</a>
+    <span class="sep">·</span>
+    <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/blob/main/LICENSE">PolyForm Noncommercial License</a>
+    <span class="sep">·</span>
+    <a href="https://github.com/sponsors/giacfalk">Sponsor</a>
+    <div>Built by Giacomo Falchetta.</div>
+    <div class="warn">⚠️ Record responsibly — always get the consent of everyone in the meeting.</div>
+  </div>
+</footer>
+
+</body>
+</html>
