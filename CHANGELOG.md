@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **License: switched from GPL-3.0 to the [PolyForm Noncommercial License 1.0.0](LICENSE).**
+  Meeting Recorder is now free for any noncommercial use (personal, research, education,
+  non-profits, government); commercial use requires a separate license from the author.
+  Releases up to and including v1.4.2 remain available under the GPL-3.0.
+
 ## 1.4.2
 
 ### New

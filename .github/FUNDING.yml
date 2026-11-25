@@ -1,2 +1,3 @@
-# Adds a "Sponsor" button to the repository. `custom` takes plain URLs (no account setup).
+# Adds a "Sponsor" button to the repository.
+github: [giacfalk]
 custom: ["https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR"]

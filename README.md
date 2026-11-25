@@ -13,9 +13,14 @@
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/giacfalk/meeting-transcribe-n-summarize/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/giacfalk/meeting-transcribe-n-summarize"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/giacfalk/meeting-transcribe-n-summarize/total"></a>
-  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/giacfalk/meeting-transcribe-n-summarize"></a>
+  <a href="LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue"></a>
   <img alt="Platforms: Windows | macOS | Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D6">
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="https://github.com/sponsors/giacfalk"><img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=githubsponsors&logoColor=white"></a>
+  <a href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white"></a>
 </p>
 
 ---
@@ -389,10 +394,11 @@ See [docs/code-signing.md](docs/code-signing.md) for signing the builds.
 
 ## Support
 
-Meeting Recorder is free and open source, built in my spare time. If it's useful to you, a
-small donation helps me keep improving it:
+Meeting Recorder is free for noncommercial use, built in my spare time. If it's useful to
+you, a small donation helps me keep improving it:
 
 <p>
+  <a href="https://github.com/sponsors/giacfalk"><img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=githubsponsors&logoColor=white"></a>
   <a href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white"></a>
 </p>
 
@@ -400,11 +406,16 @@ small donation helps me keep improving it:
 
 ## License
 
-Copyright (C) 2026 Giacomo Falchetta
+Copyright (c) 2026 Giacomo Falchetta
 
-This program is free software: you can redistribute it and/or modify it under the terms of
-the GNU General Public License as published by the Free Software Foundation, either version 3
-of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+Meeting Recorder is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**:
+you may use, modify and share it for **any noncommercial purpose** — personal use, research,
+education, non-profits, government — free of charge. **Commercial use requires a separate
+license**; to use Meeting Recorder commercially, contact
+[giacomo.falchetta@gmail.com](mailto:giacomo.falchetta@gmail.com).
+
+Releases up to and including **v1.4.2** were published under the GPL-3.0 and remain available
+under those terms; the PolyForm Noncommercial license applies from the next release onward.
 
 The builds bundle third-party components (Python, faster-whisper, CTranslate2, ONNX
 Runtime, soundcard, soundfile, NumPy, the Anthropic SDK, pystray, Pillow, Tcl/Tk), each
