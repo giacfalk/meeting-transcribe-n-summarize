@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.2
+
+### New
+- **Catch up on the earlier part of a meeting when you turn Live on partway through.**
+  Switching the Live menu on mid-recording now also transcribes what was already recorded,
+  in the background, so the live transcript — and any notes — cover the whole meeting instead
+  of only what is said after you switch it on. New speech keeps transcribing live at the same
+  time, and the earlier lines fill in above it once the background pass finishes. A new
+  *Catch up on earlier audio…* option (*Settings → Transcription*, on by default) turns it off
+  if it is too CPU-heavy on long meetings.
+
+### Changed
+- **One meeting prompt, not two.** With the tray icon on, a detected meeting used to show both
+  a Windows toast and the in-window pop-up; it now shows only the pop-up. The pop-up is also
+  borderless with rounded corners on Windows 11.
+
 ## 1.4.1
 
 ### Fixes
