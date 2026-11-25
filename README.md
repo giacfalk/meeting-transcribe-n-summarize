@@ -387,6 +387,17 @@ See [docs/code-signing.md](docs/code-signing.md) for signing the builds.
 - See the [open issues](https://github.com/giacfalk/meeting-transcribe-n-summarize/issues)
   for what's planned. Contributions are welcome.
 
+## Support
+
+Meeting Recorder is free and open source, built in my spare time. If it's useful to you, a
+small donation helps me keep improving it:
+
+<p>
+  <a href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white"></a>
+</p>
+
+...or send to `giacomo.falchetta@gmail.com`. Starring the repo helps too — thank you!
+
 ## License
 
 Copyright (C) 2026 Giacomo Falchetta
