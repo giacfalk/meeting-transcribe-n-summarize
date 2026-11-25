@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://meeting-recorder.app"><img alt="Website" src="https://img.shields.io/badge/website-meeting--recorder.app-e53935"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/giacfalk/meeting-transcribe-n-summarize/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/giacfalk/meeting-transcribe-n-summarize"></a>
   <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/giacfalk/meeting-transcribe-n-summarize/total"></a>
