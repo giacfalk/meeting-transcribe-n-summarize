@@ -108,19 +108,36 @@
   .app .rec{margin-left:auto;color:#f38ba8;font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
   .app .rec::before{content:"";width:8px;height:8px;border-radius:50%;background:#f38ba8;animation:pulse 1.4s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-  .app .body{display:grid;grid-template-columns:1.5fr 1fr;gap:1px;background:#313244}
-  .app .pane{background:#1e1e2e;padding:16px 18px;min-height:236px}
-  .app .plabel{color:#7f849c;font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:13px}
-  .app .line{font-size:.92rem;line-height:1.5;margin-bottom:9px;color:#cdd6f4}
-  .app .line .ts{color:#7f849c;font-variant-numeric:tabular-nums;margin-right:4px;font-size:.82rem}
+  .app .body{display:grid;grid-template-columns:232px 1fr;gap:1px;background:#313244}
+  .app .side{background:#1e1e2e;padding:15px 15px 13px;display:flex;flex-direction:column;gap:11px}
+  .app .timer{font-size:1.85rem;font-weight:800;color:#cdd6f4;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:9px}
+  .app .timer::before{content:"";width:11px;height:11px;border-radius:50%;background:#f38ba8;animation:pulse 1.4s ease-in-out infinite}
+  .app .appbtn{background:#f38ba8;color:#11111b;font-weight:800;border-radius:8px;padding:11px;text-align:center;font-size:.9rem}
+  .app .field label{display:block;color:#7f849c;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+  .app .combo{background:#313244;color:#cdd6f4;border-radius:7px;padding:8px 10px;font-size:.8rem;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .app .combo>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app .combo .car{color:#7f849c;font-size:.7rem;flex:none}
+  .app .hint{color:#7f849c;font-size:.73rem;line-height:1.4}
+  .app .grow{flex:1;min-height:6px}
+  .app .actions{display:flex;flex-wrap:wrap;gap:5px}
+  .app .minibtn{background:#313244;color:#a6adc8;border-radius:6px;padding:5px 8px;font-size:.67rem;font-weight:600}
+  .app .chk{display:flex;align-items:center;gap:7px;color:#a6adc8;font-size:.73rem}
+  .app .chk .box{width:13px;height:13px;border-radius:3px;border:1.5px solid #45475a}
+  .app .logbox{background:#181825;border-radius:7px;padding:8px 10px;color:#7f849c;font-size:.67rem;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .app .saving{color:#585b70;font-size:.65rem}
+  .app .live{background:#313244;display:grid;grid-template-rows:1.4fr 1fr;gap:1px;min-height:330px}
+  .app .pane{background:#181825;padding:14px 16px;min-width:0;overflow:hidden}
+  .app .plabel{color:#7f849c;font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:11px}
+  .app .line{font-size:.9rem;line-height:1.5;margin-bottom:8px;color:#cdd6f4}
+  .app .line .ts{color:#7f849c;font-variant-numeric:tabular-nums;margin-right:4px;font-size:.8rem}
   .app .line .me{color:#89b4fa;font-weight:700}
   .app .line .ot{color:#a6e3a1;font-weight:700}
-  .app .cursor{display:inline-block;width:7px;height:15px;background:#89b4fa;vertical-align:-2px;margin-left:3px;animation:blink 1.05s step-end infinite}
+  .app .cursor{display:inline-block;width:7px;height:14px;background:#89b4fa;vertical-align:-2px;margin-left:3px;animation:blink 1.05s step-end infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-  .app .note h4{margin:0 0 9px;color:#cdd6f4;font-size:.95rem}
-  .app .note ul{margin:0;padding-left:18px;color:#a6adc8;font-size:.88rem;line-height:1.65}
+  .app .note h4{margin:0 0 8px;color:#cdd6f4;font-size:.92rem}
+  .app .note ul{margin:0;padding-left:17px;color:#a6adc8;font-size:.85rem;line-height:1.6}
   .app .note b{color:#cdd6f4}
-  @media(max-width:620px){.app .body{grid-template-columns:1fr}}
+  @media(max-width:640px){.app .body{grid-template-columns:1fr}.app .live{grid-template-rows:auto auto;min-height:0}}
   /* animated line-by-line reveal (progressive enhancement; static if no JS) */
   .js .demo .line{opacity:0;transform:translateY(8px)}
   .demo.reveal .line{opacity:1;transform:none;transition:opacity .45s ease,transform .45s ease}
@@ -224,26 +241,39 @@
         <span class="rec">REC 02:14</span>
       </div>
       <div class="body">
-        <div class="pane">
-          <div class="plabel">Live transcript</div>
-          <div class="lines">
-            <div class="line"><span class="ts">[00:03]</span> <span class="me">Me:</span> Let's kick off the Q3 planning review — can everyone see my screen?</div>
-            <div class="line"><span class="ts">[00:08]</span> <span class="ot">Others:</span> Yep, looks good. Shall we start with the roadmap?</div>
-            <div class="line"><span class="ts">[00:14]</span> <span class="me">Me:</span> Sure. The big question is whether we ship the beta on the 14th.</div>
-            <div class="line"><span class="ts">[00:21]</span> <span class="ot">Others:</span> We're close — release notes are the only blocker.</div>
-            <div class="line"><span class="ts">[00:27]</span> <span class="me">Me:</span> Great. Sam, can you draft those by Thursday?</div>
-            <div class="line"><span class="ts">[00:31]</span> <span class="ot">Others:</span> On it.<span class="cursor"></span></div>
-          </div>
+        <div class="side">
+          <div class="timer">02:14</div>
+          <div class="appbtn">Stop Recording</div>
+          <div class="field"><label>Model</label><div class="combo"><span>base</span><span class="car">▾</span></div></div>
+          <div class="field"><label>Live</label><div class="combo"><span>Transcript + auto notes</span><span class="car">▾</span></div></div>
+          <div class="hint">A draft transcript builds as you talk; notes refresh automatically.</div>
+          <div class="grow"></div>
+          <div class="actions"><span class="minibtn">Process pending</span><span class="minibtn">Open folder</span><span class="minibtn">Settings</span></div>
+          <label class="chk"><span class="box"></span> Keep window on top</label>
+          <div class="logbox">14:02 · Started (mic: Headset; system: Speakers)<br>14:02 · Live transcript + auto notes is on.</div>
+          <div class="saving">Saving to Documents / Meeting Recorder</div>
         </div>
-        <div class="pane">
-          <div class="plabel">Notes</div>
-          <div class="note">
-            <h4>Q3 planning review</h4>
-            <ul>
-              <li>Reviewed the roadmap and beta readiness.</li>
-              <li><b>Decision:</b> ship the beta on the 14th.</li>
-              <li><b>Action:</b> Sam to draft the release notes by Thursday.</li>
-            </ul>
+        <div class="live">
+          <div class="pane">
+            <div class="plabel">Live transcript</div>
+            <div class="lines">
+              <div class="line"><span class="ts">[00:03]</span> <span class="me">Me:</span> Let's kick off the Q3 planning review — can everyone see my screen?</div>
+              <div class="line"><span class="ts">[00:08]</span> <span class="ot">Others:</span> Yep, looks good. Shall we start with the roadmap?</div>
+              <div class="line"><span class="ts">[00:14]</span> <span class="me">Me:</span> Sure. The big question is whether we ship the beta on the 14th.</div>
+              <div class="line"><span class="ts">[00:21]</span> <span class="ot">Others:</span> We're close — release notes are the only blocker.</div>
+              <div class="line"><span class="ts">[00:27]</span> <span class="me">Me:</span> Great. Sam, can you draft those by Thursday?</div>
+              <div class="line"><span class="ts">[00:31]</span> <span class="ot">Others:</span> On it.<span class="cursor"></span></div>
+            </div>
+          </div>
+          <div class="pane">
+            <div class="plabel">Notes</div>
+            <div class="note">
+              <h4>Q3 planning review</h4>
+              <ul>
+                <li><b>Decision:</b> ship the beta on the 14th.</li>
+                <li><b>Action:</b> Sam to draft the release notes by Thursday.</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
