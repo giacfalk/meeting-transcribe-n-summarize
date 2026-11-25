@@ -10,6 +10,42 @@
 <meta property="og:description" content="Records your meetings, transcribes them on your own machine, tells you who said what, and writes the summary. Your audio never leaves your computer.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://raw.githubusercontent.com/giacfalk/meeting-transcribe-n-summarize/main/assets/logo.png">
+<meta property="og:site_name" content="Meeting Recorder">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Meeting Recorder — private, local meeting transcription">
+<meta name="twitter:description" content="Records your meetings, transcribes them on your own machine, labels who said what, and writes the summary. No bot, no cloud.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/giacfalk/meeting-transcribe-n-summarize/main/assets/logo.png">
+<meta name="author" content="Giacomo Falchetta">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Meeting Recorder",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "description": "A one-button desktop app that records your meetings, transcribes them locally with faster-whisper, labels who said what, and writes the summary. Your audio never leaves your machine.",
+  "url": "https://github.com/giacfalk/meeting-transcribe-n-summarize",
+  "downloadUrl": "https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest",
+  "image": "https://raw.githubusercontent.com/giacfalk/meeting-transcribe-n-summarize/main/assets/logo.png",
+  "author": { "@type": "Person", "name": "Giacomo Falchetta" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Does Meeting Recorder upload my audio anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Transcription runs locally on your machine with faster-whisper — no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model." } },
+    { "@type": "Question", "name": "Is Meeting Recorder free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license." } },
+    { "@type": "Question", "name": "Which platforms does it support?", "acceptedAnswer": { "@type": "Answer", "text": "Windows, macOS and Linux." } },
+    { "@type": "Question", "name": "Does it work with Zoom, Microsoft Teams and Google Meet?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It records your microphone and the system audio together, so it captures any meeting app — no plugins and no bots." } },
+    { "@type": "Question", "name": "Can it run completely offline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online." } },
+    { "@type": "Question", "name": "Do I need an account or an API key?", "acceptedAnswer": { "@type": "Answer", "text": "No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model." } }
+  ]
+}
+</script>
 <style>
   :root{
     --red:#e53935; --red-dark:#b71c1c; --pink:#ea4aaa;
@@ -90,6 +126,16 @@
   .support-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:8px 0 22px}
   .support-note{text-align:center;color:#c8cbe0;max-width:620px;margin:0 auto;font-size:.98rem}
   .support-note a{color:#fff;font-weight:700}
+
+  /* faq */
+  .faq{max-width:760px}
+  .faq h2{margin-bottom:28px}
+  .faq details{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:12px}
+  .faq summary{font-weight:700;cursor:pointer;list-style:none;padding-right:26px;position:relative}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";position:absolute;right:0;top:-2px;color:var(--muted);font-size:1.3rem;line-height:1}
+  .faq details[open] summary::after{content:"\2212"}
+  .faq p{color:var(--muted);margin:.7rem 0 0}
 
   /* footer */
   footer{background:var(--crust);color:#9aa0c0;text-align:center;padding:40px 0;font-size:.92rem;border-top:1px solid rgba(255,255,255,.08)}
@@ -176,6 +222,18 @@
       </div>
     </div>
     <p class="note">The builds aren't code-signed yet — on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time.<br>⚠️ Always get everyone's consent before recording a meeting.</p>
+  </div>
+</section>
+
+<section class="soft" id="faq">
+  <div class="wrap faq">
+    <h2>Frequently asked questions</h2>
+    <details><summary>Does Meeting Recorder upload my audio anywhere?</summary><p>No. Transcription runs locally on your machine with faster-whisper — no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model.</p></details>
+    <details><summary>Is Meeting Recorder free?</summary><p>Yes — free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license.</p></details>
+    <details><summary>Which platforms does it support?</summary><p>Windows, macOS and Linux.</p></details>
+    <details><summary>Does it work with Zoom, Microsoft Teams and Google Meet?</summary><p>Yes. It records your microphone and the system audio together, so it captures any meeting app — no plugins and no bots.</p></details>
+    <details><summary>Can it run completely offline?</summary><p>Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online.</p></details>
+    <details><summary>Do I need an account or an API key?</summary><p>No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model.</p></details>
   </div>
 </section>
 
