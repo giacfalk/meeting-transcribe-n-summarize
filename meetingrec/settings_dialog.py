@@ -1,19 +1,28 @@
 """Settings dialog: the everyday options of settings.json in a small tabbed window.
 
-settings.json stays the source of truth: the dialog only changes the keys it
-shows and keeps everything else in the file as it is.
+Built from custom Tk widgets in the app's dark palette (no ttk), so it matches the
+main window and the first-run wizard. settings.json stays the source of truth: the
+dialog only changes the keys it shows and keeps everything else in the file as it is.
 """
 
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog
 
 from . import config, i18n, meetings, osutil, summarize, tray
 from .hotkey import parse_hotkey
 from .i18n import t
 
+SANS = osutil.FONTS[0]
+BG = "#1e1e2e"
+SURFACE, SURFACE_HI = "#313244", "#45475a"
+ACCENT, GREEN = "#89b4fa", "#a6e3a1"
+TEXT_MAIN, TEXT_SUB, TEXT_DIM = "#cdd6f4", "#a6adc8", "#7f849c"
+RED = "#f38ba8"
+
 # Transcription (Whisper) language codes offered besides "auto"; not the app's own UI language.
 _WHISPER_LANGS = ["en", "it", "de", "fr", "es", "pt", "nl", "pl", "sv", "da", "no", "fi",
                   "cs", "ro", "hu", "el", "tr", "ru", "uk", "ar", "he", "hi", "zh", "ja", "ko"]
+_TABS = ("transcription", "audio", "summaries", "behavior")
 
 
 def _default_list_devices():
@@ -27,9 +36,8 @@ class SettingsDialog(tk.Toplevel):
         self._on_saved = on_saved
         self._s = settings
         self._error = tk.StringVar()
-        self._hint_font = (osutil.FONTS[0], 8)
-        # Display sentinels for the "empty value" combobox entries, in the active language.
-        # They double as the value the entry carries, so collect() compares against the same text.
+        # Display sentinels for the "empty value" entries, in the active language. They double
+        # as the value the entry carries, so collect() compares against the same text.
         self._auto = t("settings.transcription.auto")
         self._default_mic = t("settings.audio.default_mic")
         self._default_system = t("settings.audio.default_system")
@@ -39,83 +47,200 @@ class SettingsDialog(tk.Toplevel):
             self._mics, self._system_sources = [], []
 
         self.title(t("settings.title"))
+        self.configure(bg=BG)
         self.transient(master)
         self.resizable(False, False)
 
-        notebook = ttk.Notebook(self)
-        notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
-        tabs = {}
-        for name in ("Transcription", "Audio", "Summaries", "Behavior"):
-            frame = ttk.Frame(notebook, padding=(16, 14))
-            frame.columnconfigure(1, weight=1)
-            notebook.add(frame, text=t(f"settings.tab.{name.lower()}"))
-            tabs[name] = frame
-        self._build_transcription(tabs["Transcription"])
-        self._build_audio(tabs["Audio"])
-        self._build_summaries(tabs["Summaries"])
-        self._build_behavior(tabs["Behavior"])
+        # ---- tab bar + stacked tab pages --------------------------------
+        tabbar = tk.Frame(self, bg=BG)
+        tabbar.pack(fill="x", padx=16, pady=(14, 0))
+        content = tk.Frame(self, bg=BG)
+        content.pack(fill="both", expand=True, padx=16, pady=(12, 0))
+        content.rowconfigure(0, weight=1)
+        content.columnconfigure(0, weight=1)
+        self._tab_btns, self._pages = {}, {}
+        for key in _TABS:
+            b = tk.Label(tabbar, text=t(f"settings.tab.{key}"), font=(SANS, 10, "bold"),
+                         bg=BG, fg=TEXT_DIM, cursor="hand2", padx=14, pady=7)
+            b.pack(side="left", padx=(0, 2))
+            b.bind("<Button-1>", lambda _e, k=key: self._show_tab(k))
+            self._tab_btns[key] = b
+            page = tk.Frame(content, bg=BG)
+            page.grid(row=0, column=0, sticky="nsew")
+            page.columnconfigure(0, minsize=150)
+            page.columnconfigure(1, weight=1, minsize=330)
+            self._pages[key] = page
 
-        bottom = ttk.Frame(self, padding=(10, 8, 10, 10))
-        bottom.pack(fill="x")
-        ttk.Button(bottom, text=t("settings.edit_json"), command=self._edit_json).pack(side="left")
-        ttk.Button(bottom, text=t("common.save"), command=self.save,
-                   style="Primary.TButton").pack(side="right")
-        ttk.Button(bottom, text=t("common.cancel"), command=self.destroy).pack(side="right", padx=6)
-        ttk.Label(self, textvariable=self._error, foreground="#c62828",
-                  wraplength=420).pack(fill="x", padx=12, pady=(0, 8))
+        self._build_transcription(self._pages["transcription"])
+        self._build_audio(self._pages["audio"])
+        self._build_summaries(self._pages["summaries"])
+        self._build_behavior(self._pages["behavior"])
+        self._show_tab("transcription")
+
+        # ---- bottom bar -------------------------------------------------
+        tk.Label(self, textvariable=self._error, bg=BG, fg=RED, font=(SANS, 9),
+                 wraplength=460, justify="left", anchor="w").pack(fill="x", padx=18, pady=(8, 0))
+        bar = tk.Frame(self, bg=BG)
+        bar.pack(fill="x", padx=16, pady=(6, 14))
+        self._button(bar, t("settings.edit_json"), self._edit_json, "ghost").pack(side="left")
+        self._button(bar, t("common.save"), self.save, "primary").pack(side="right")
+        self._button(bar, t("common.cancel"), self.destroy, "surface").pack(side="right",
+                                                                            padx=(0, 8))
         self.bind("<Escape>", lambda _e: self.destroy())
 
         self.update_idletasks()
         osutil.set_dark_titlebar(self)
-        x = master.winfo_rootx() + 30
-        y = master.winfo_rooty() + 30
-        self.geometry(f"+{x}+{y}")
+        self.geometry(f"+{master.winfo_rootx() + 30}+{master.winfo_rooty() + 24}")
         self.grab_set()
 
-    # ---- layout helpers -------------------------------------------------
+    # ---- tab switching --------------------------------------------------
+    def _show_tab(self, key):
+        for k, b in self._tab_btns.items():
+            on = k == key
+            b.config(fg=ACCENT if on else TEXT_DIM, bg=SURFACE if on else BG)
+        self._pages[key].tkraise()
 
-    def _row(self, frame, label: str, widget, hint: str = "") -> None:
+    # ---- styled widgets (each created as a child of `parent`) -----------
+    def _button(self, parent, text, command, kind="surface"):
+        bg, fg, weight = {"primary": (GREEN, BG, "bold"),
+                          "surface": (SURFACE, TEXT_MAIN, "normal"),
+                          "ghost": (BG, TEXT_SUB, "normal")}[kind]
+        active = {"primary": "#b8f0b2", "surface": SURFACE_HI, "ghost": BG}[kind]
+        return tk.Button(parent, text=text, command=command, bg=bg, fg=fg, activebackground=active,
+                         activeforeground=fg, relief="flat", bd=0, cursor="hand2", padx=18, pady=8,
+                         font=(SANS, 10, weight))
+
+    def _focusable(self, box, entry):
+        """Give a field an accent border while its entry has keyboard focus."""
+        entry.bind("<FocusIn>", lambda _e: box.config(highlightbackground=ACCENT,
+                                                       highlightcolor=ACCENT))
+        entry.bind("<FocusOut>", lambda _e: box.config(highlightbackground=SURFACE,
+                                                       highlightcolor=SURFACE))
+
+    def _field_box(self, parent):
+        return tk.Frame(parent, bg=SURFACE, highlightthickness=1, highlightbackground=SURFACE,
+                        highlightcolor=SURFACE)
+
+    def _entry_var(self, parent, var, show="", width=28):
+        box = self._field_box(parent)
+        e = tk.Entry(box, textvariable=var, show=show, bg=SURFACE, fg=TEXT_MAIN,
+                     insertbackground=TEXT_MAIN, relief="flat", bd=0, font=(SANS, 10), width=width)
+        e.pack(fill="x", expand=True, ipady=5, padx=9)
+        self._focusable(box, e)
+        return box
+
+    def _entry(self, parent, key, show="", width=28):
+        var = tk.StringVar(value=str(self._s[key]))
+        return var, self._entry_var(parent, var, show, width)
+
+    def _combo(self, parent, var, values, editable=True, command=None):
+        box = self._field_box(parent)
+        e = tk.Entry(box, textvariable=var, bg=SURFACE, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+                     relief="flat", bd=0, font=(SANS, 10), readonlybackground=SURFACE,
+                     state="normal" if editable else "readonly")
+        e.pack(side="left", fill="x", expand=True, ipady=5, padx=(9, 0))
+        self._focusable(box, e)
+        mb = tk.Menubutton(box, text="▾", bg=SURFACE, fg=TEXT_SUB, activebackground=SURFACE,
+                           activeforeground=ACCENT, relief="flat", bd=0, cursor="hand2",
+                           font=(SANS, 10), padx=10)
+        menu = tk.Menu(mb, tearoff=0, bg=SURFACE_HI, fg=TEXT_MAIN, activebackground=ACCENT,
+                       activeforeground=BG, bd=0, font=(SANS, 10))
+
+        def choose(value):
+            var.set(value)
+            if command:
+                command()
+        for value in values:
+            menu.add_command(label=str(value), command=lambda v=value: choose(v))
+        mb["menu"] = menu
+        mb.pack(side="right", fill="y")
+        if not editable:   # a read-only field opens the menu when clicked anywhere
+            e.config(cursor="hand2")
+            e.bind("<Button-1>", lambda _e: menu.tk_popup(
+                box.winfo_rootx(), box.winfo_rooty() + box.winfo_height()))
+        return box
+
+    def _stepper(self, parent, var, lo, hi, step):
+        box = tk.Frame(parent, bg=BG)
+
+        def bump(delta):
+            try:
+                value = int(float(var.get()))
+            except ValueError:
+                value = lo
+            var.set(str(max(lo, min(hi, value + delta))))
+
+        def mini(text, command):
+            return tk.Button(box, text=text, command=command, bg=SURFACE, fg=TEXT_MAIN,
+                             activebackground=SURFACE_HI, activeforeground=TEXT_MAIN, relief="flat",
+                             bd=0, cursor="hand2", font=(SANS, 12), width=2)
+        mini("−", lambda: bump(-step)).pack(side="left")
+        field = self._field_box(box)
+        field.pack(side="left", padx=6)
+        e = tk.Entry(field, textvariable=var, bg=SURFACE, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+                     relief="flat", bd=0, font=(SANS, 10), width=6, justify="center")
+        e.pack(ipady=5, padx=6)
+        self._focusable(field, e)
+        mini("+", lambda: bump(step)).pack(side="left")
+        return box
+
+    # ---- layout ---------------------------------------------------------
+    def _row(self, frame, label, widget, hint=""):
         row = frame.grid_size()[1]
-        ttk.Label(frame, text=label).grid(row=row, column=0, sticky="nw", pady=(4, 0), padx=(0, 12))
-        widget.grid(row=row, column=1, sticky="ew", pady=(3, 0))
+        tk.Label(frame, text=label, bg=BG, fg=TEXT_SUB, font=(SANS, 10), anchor="nw").grid(
+            row=row, column=0, sticky="nw", pady=(11, 0), padx=(0, 14))
+        widget.grid(row=row, column=1, sticky="ew", pady=(11, 0))
         if hint:
-            ttk.Label(frame, text=hint, font=self._hint_font, foreground="#6c7086",
-                      wraplength=300).grid(row=row + 1, column=1, sticky="w")
+            tk.Label(frame, text=hint, bg=BG, fg=TEXT_DIM, font=(SANS, 8), anchor="w",
+                     justify="left", wraplength=330).grid(row=row + 1, column=1, sticky="w",
+                                                          pady=(3, 0))
 
-    def _check(self, frame, text: str, key: str, hint: str = "", enabled: bool = True):
+    def _sub(self, frame, var):
+        """A small status line under the control in column 1 (driven by a StringVar)."""
+        tk.Label(frame, textvariable=var, bg=BG, fg=TEXT_DIM, font=(SANS, 8), anchor="w",
+                 justify="left", wraplength=330).grid(row=frame.grid_size()[1], column=1,
+                                                      sticky="w", pady=(3, 0))
+
+    def _check(self, frame, text, key, hint="", enabled=True):
         var = tk.BooleanVar(value=self._s[key])
-        cb = ttk.Checkbutton(frame, text=text, variable=var)
-        if not enabled:
-            cb.state(["disabled"])
         row = frame.grid_size()[1]
-        cb.grid(row=row, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        holder = tk.Frame(frame, bg=BG, cursor="hand2" if enabled else "arrow")
+        holder.grid(row=row, column=0, columnspan=2, sticky="w", pady=(13, 0))
+        box = tk.Label(holder, width=2, bg=ACCENT if var.get() else SURFACE, fg=BG,
+                       text="✓" if var.get() else "", font=(SANS, 9, "bold"))
+        box.pack(side="left", ipady=1)
+        tk.Label(holder, text=text, bg=BG, fg=TEXT_MAIN if enabled else TEXT_DIM,
+                 font=(SANS, 10), padx=8).pack(side="left")
+
+        def toggle(_e=None):
+            var.set(not var.get())
+            box.config(bg=ACCENT if var.get() else SURFACE, text="✓" if var.get() else "")
+        if enabled:
+            for w in holder.winfo_children() + [holder]:
+                w.bind("<Button-1>", toggle)
         if hint:
-            ttk.Label(frame, text=hint, font=self._hint_font, foreground="#6c7086",
-                      wraplength=380).grid(row=row + 1, column=0, columnspan=2, sticky="w",
-                                           padx=(22, 0))
+            tk.Label(frame, text=hint, bg=BG, fg=TEXT_DIM, font=(SANS, 8), anchor="w",
+                     justify="left", wraplength=430).grid(row=row + 1, column=0, columnspan=2,
+                                                          sticky="w", padx=(28, 0), pady=(3, 0))
         return var
 
-    def _entry(self, frame, key: str, width: int = 32, **kw):
-        var = tk.StringVar(value=str(self._s[key]))
-        return var, ttk.Entry(frame, textvariable=var, width=width, **kw)
+    def _separator(self, frame):
+        tk.Frame(frame, bg=SURFACE, height=1).grid(row=frame.grid_size()[1], column=0,
+                                                   columnspan=2, sticky="ew", pady=(14, 2))
 
     # ---- tabs -----------------------------------------------------------
-
     def _build_transcription(self, f):
         self.v_model = tk.StringVar(value=self._s["whisper_model"])
         self._row(f, t("settings.transcription.model"),
-                  ttk.Combobox(f, textvariable=self.v_model, values=config.WHISPER_MODELS,
-                               width=30),
+                  self._combo(f, self.v_model, config.WHISPER_MODELS),
                   t("settings.transcription.model.hint"))
         self.v_language = tk.StringVar(value=self._s["language"] or self._auto)
         self._row(f, t("settings.transcription.language"),
-                  ttk.Combobox(f, textvariable=self.v_language,
-                               values=[self._auto, *_WHISPER_LANGS], width=30),
+                  self._combo(f, self.v_language, [self._auto, *_WHISPER_LANGS]),
                   t("settings.transcription.language.hint"))
         self.v_device = tk.StringVar(value=self._s["device"])
         self._row(f, t("settings.transcription.device"),
-                  ttk.Combobox(f, textvariable=self.v_device, values=config.DEVICES,
-                               state="readonly", width=30),
+                  self._combo(f, self.v_device, config.DEVICES, editable=False),
                   t("settings.transcription.device.hint"))
         self.v_labels = self._check(f, t("settings.transcription.labels"), "speaker_labels")
         self.v_mic_label, e1 = self._entry(f, "mic_label")
@@ -124,27 +249,22 @@ class SettingsDialog(tk.Toplevel):
         self._row(f, t("settings.transcription.others_label"), e2)
         self.v_srt = self._check(f, t("settings.transcription.srt"), "write_srt")
 
-        ttk.Separator(f, orient="horizontal").grid(
-            row=f.grid_size()[1], column=0, columnspan=2, sticky="ew", pady=(10, 2))
+        self._separator(f)
         self.v_live_mode = tk.StringVar(value=self._s["live_mode"])
         self._row(f, t("settings.transcription.live_mode"),
-                  ttk.Combobox(f, textvariable=self.v_live_mode, values=config.LIVE_MODES,
-                               state="readonly", width=30),
+                  self._combo(f, self.v_live_mode, config.LIVE_MODES, editable=False),
                   t("settings.transcription.live_mode.hint"))
         self.v_live_model = tk.StringVar(value=self._s["live_model"])
         self._row(f, t("settings.transcription.live_model"),
-                  ttk.Combobox(f, textvariable=self.v_live_model, values=config.WHISPER_MODELS,
-                               width=30),
+                  self._combo(f, self.v_live_model, config.WHISPER_MODELS),
                   t("settings.transcription.live_model.hint"))
         self.v_live_interval = tk.StringVar(value=str(self._s["live_interval"]))
         self._row(f, t("settings.transcription.live_interval"),
-                  ttk.Spinbox(f, from_=2, to=120, increment=5, width=8,
-                              textvariable=self.v_live_interval),
+                  self._stepper(f, self.v_live_interval, 2, 120, 5),
                   t("settings.transcription.live_interval.hint"))
         self.v_live_notes_interval = tk.StringVar(value=str(self._s["live_notes_interval"]))
         self._row(f, t("settings.transcription.live_notes_interval"),
-                  ttk.Spinbox(f, from_=60, to=3600, increment=60, width=8,
-                              textvariable=self.v_live_notes_interval),
+                  self._stepper(f, self.v_live_notes_interval, 60, 3600, 60),
                   t("settings.transcription.live_notes_interval.hint"))
         self.v_live_catchup = self._check(
             f, t("settings.transcription.live_catchup"), "live_catchup",
@@ -153,49 +273,40 @@ class SettingsDialog(tk.Toplevel):
     def _build_audio(self, f):
         self.v_mic = tk.StringVar(value=self._s["microphone"] or self._default_mic)
         self._row(f, t("settings.audio.mic"),
-                  ttk.Combobox(f, textvariable=self.v_mic, width=30,
-                               values=[self._default_mic] + self._mics),
+                  self._combo(f, self.v_mic, [self._default_mic] + self._mics),
                   t("settings.audio.mic.hint"))
         self.v_system = tk.StringVar(value=self._s["system_audio"] or self._default_system)
         hint = (t("settings.audio.system.hint.macos") if osutil.MACOS
                 else t("settings.audio.system.hint"))
         self._row(f, t("settings.audio.system"),
-                  ttk.Combobox(f, textvariable=self.v_system, width=30,
-                               values=[self._default_system] + self._system_sources),
+                  self._combo(f, self.v_system, [self._default_system] + self._system_sources),
                   hint)
         self.v_timeout = tk.StringVar(value=str(self._s["silence_timeout"]))
-        self._row(f, t("settings.audio.timeout"),
-                  ttk.Spinbox(f, from_=0, to=3600, increment=30, width=8,
-                              textvariable=self.v_timeout),
+        self._row(f, t("settings.audio.timeout"), self._stepper(f, self.v_timeout, 0, 3600, 30),
                   t("settings.audio.timeout.hint"))
-        self.v_threshold = tk.StringVar(value=str(self._s["silence_threshold"]))
-        self._row(f, t("settings.audio.threshold"),
-                  ttk.Entry(f, textvariable=self.v_threshold, width=8),
-                  t("settings.audio.threshold.hint"))
+        self.v_threshold, e = self._entry(f, "silence_threshold", width=10)
+        self._row(f, t("settings.audio.threshold"), e, t("settings.audio.threshold.hint"))
         self.v_keep = self._check(f, t("settings.audio.keep"), "keep_audio")
 
         self.v_output = tk.StringVar(value=self._s["output_dir"])
-        box = ttk.Frame(f)
-        box.columnconfigure(0, weight=1)
-        ttk.Entry(box, textvariable=self.v_output, width=24).grid(row=0, column=0, sticky="ew")
-        ttk.Button(box, text=t("common.browse"), command=self._browse).grid(row=0, column=1,
+        box = tk.Frame(f, bg=BG)
+        self._entry_var(box, self.v_output, width=20).pack(side="left", fill="x", expand=True)
+        self._button(box, t("common.browse"), self._browse, "surface").pack(side="left",
                                                                             padx=(6, 0))
         self._row(f, t("settings.audio.save_to"), box,
                   t("settings.audio.save_to.hint", path=config.default_output_dir()))
 
     def _build_summaries(self, f):
         self.v_backend = tk.StringVar(value=self._s["summary_backend"])
-        combo = ttk.Combobox(f, textvariable=self.v_backend, values=config.SUMMARY_BACKENDS,
-                             state="readonly", width=30)
-        self._row(f, t("settings.summaries.backend"), combo)
+        self._row(f, t("settings.summaries.backend"),
+                  self._combo(f, self.v_backend, config.SUMMARY_BACKENDS, editable=False,
+                              command=self._update_backend_hints))
         self.v_status = tk.StringVar()
-        ttk.Label(f, textvariable=self.v_status, font=self._hint_font).grid(
-            row=f.grid_size()[1], column=1, sticky="w")
+        self._sub(f, self.v_status)
         self.v_summary_model, e = self._entry(f, "summary_model")
-        self.v_model_hint = tk.StringVar()
         self._row(f, t("settings.summaries.model"), e)
-        ttk.Label(f, textvariable=self.v_model_hint, font=self._hint_font,
-                  foreground="#6c7086").grid(row=f.grid_size()[1], column=1, sticky="w")
+        self.v_model_hint = tk.StringVar()
+        self._sub(f, self.v_model_hint)
         self.v_api_key, e = self._entry(f, "anthropic_api_key", show="•")
         self._row(f, t("settings.summaries.anthropic_key"), e,
                   t("settings.summaries.anthropic_key.hint"))
@@ -203,17 +314,19 @@ class SettingsDialog(tk.Toplevel):
         self._row(f, t("settings.summaries.openai_key"), e, t("settings.summaries.openai_key.hint"))
         self.v_ollama, e = self._entry(f, "ollama_url")
         self._row(f, t("settings.summaries.ollama_url"), e)
-        self.t_prompt = tk.Text(f, width=40, height=4, wrap="word", font=(osutil.FONTS[0], 9))
+        prompt_box = self._field_box(f)
+        self.t_prompt = tk.Text(prompt_box, width=36, height=4, wrap="word", font=(SANS, 10),
+                                bg=SURFACE, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+                                relief="flat", bd=0, padx=8, pady=6, highlightthickness=0)
         self.t_prompt.insert("1.0", self._s["summary_prompt"])
-        self._row(f, t("settings.summaries.prompt"), self.t_prompt,
+        self.t_prompt.pack(fill="both", expand=True)
+        self._focusable(prompt_box, self.t_prompt)
+        self._row(f, t("settings.summaries.prompt"), prompt_box,
                   t("settings.summaries.prompt.hint"))
-        combo.bind("<<ComboboxSelected>>", lambda _e: self._update_backend_hints())
         self._update_backend_hints()
 
     def _build_behavior(self, f):
         self.v_hotkey, e = self._entry(f, "hotkey")
-        if osutil.MACOS:
-            e.state(["disabled"])
         self._row(f, t("settings.behavior.hotkey"), e,
                   t("settings.behavior.hotkey.hint.macos") if osutil.MACOS
                   else t("settings.behavior.hotkey.hint"))
@@ -223,25 +336,23 @@ class SettingsDialog(tk.Toplevel):
             t("settings.behavior.meeting_prompt.hint") if can_watch
             else t("settings.behavior.meeting_prompt.hint.macos"), enabled=can_watch)
         self.v_apps = tk.StringVar(value=", ".join(self._s["meeting_apps"]))
-        self._row(f, t("settings.behavior.meeting_apps"),
-                  ttk.Entry(f, textvariable=self.v_apps, width=32),
+        self._row(f, t("settings.behavior.meeting_apps"), self._entry_var(f, self.v_apps),
                   t("settings.behavior.meeting_apps.hint"))
         can_tray = tray.supported()
-        note = "" if can_tray else t("settings.behavior.tray.hint.unsupported")
-        self.v_tray = self._check(f, t("settings.behavior.tray"), "tray_icon", note,
+        self.v_tray = self._check(f, t("settings.behavior.tray"), "tray_icon",
+                                  "" if can_tray else t("settings.behavior.tray.hint.unsupported"),
                                   enabled=can_tray)
         self.v_min_tray = self._check(f, t("settings.behavior.min_tray"), "minimize_to_tray",
                                       enabled=can_tray)
 
+        self._separator(f)
         self._lang_by_name = {i18n.native_name(c): c for c in i18n.LANGUAGES}
         self.v_ui_language = tk.StringVar(value=i18n.native_name(self._s.get("ui_language", "en")))
         self._row(f, t("settings.behavior.ui_language"),
-                  ttk.Combobox(f, textvariable=self.v_ui_language,
-                               values=list(self._lang_by_name), state="readonly", width=30),
+                  self._combo(f, self.v_ui_language, list(self._lang_by_name), editable=False),
                   t("common.restart_note"))
 
     # ---- actions --------------------------------------------------------
-
     def _model_hint(self, backend: str) -> str:
         return {
             "claude-cli": t("settings.summaries.hint.claude"),
