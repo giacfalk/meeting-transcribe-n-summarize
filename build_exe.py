@@ -139,8 +139,9 @@ def build(icon: Path) -> Path:
         "--collect-all", "faster_whisper",
         "--collect-all", "ctranslate2",
         "--collect-all", "onnxruntime",
+        "--collect-all", "openai",
         # The Claude CLI and Ollama backends are external programs; the optional
-        # Anthropic API backend is bundled when `anthropic` is installed.
+        # Anthropic API and OpenAI (ChatGPT) backends are bundled when installed.
     ]
     if WINDOWS:
         cmd.append(f"--icon={icon}")

@@ -240,6 +240,7 @@ the file.
 | `summary_model` | `""` | Model for the summary backend (`""` = its default; required for Ollama) |
 | `summary_prompt` | `""` | Your own summary instructions (`""` = the built-in prompt) |
 | `anthropic_api_key` | `""` | API key for `anthropic-api`. The `ANTHROPIC_API_KEY` environment variable is better. |
+| `openai_api_key` | `""` | API key for `openai-api`. The `OPENAI_API_KEY` environment variable is better. |
 | `ollama_url` | `"http://localhost:11434"` | Where Ollama is running |
 
 The app also keeps a log (`meetingrec.log`, next to `settings.json`) of what it did. It
@@ -251,6 +252,7 @@ contains file and device names, but no transcript text. Attach it when you repor
 |---|---|---|
 | `claude-cli` (default) | [Claude Code](https://code.claude.com/docs/en/setup) installed and logged in, with `claude` on your `PATH` | Anthropic, under your Claude account |
 | `anthropic-api` | An Anthropic API key (`ANTHROPIC_API_KEY`). The default model is `claude-opus-5-5`. | Anthropic, under your API account |
+| `openai-api` | An OpenAI API key (`OPENAI_API_KEY`). The default model is `gpt-4o`. | OpenAI, under your API account |
 | `ollama` | [Ollama](https://ollama.com) running, with a model pulled (e.g. `ollama pull llama3.1`) and set as `summary_model` | **Nowhere.** It stays on your machine. |
 | `none` | - | - |
 
@@ -291,6 +293,7 @@ The summary step (and the live **notes**, which use the same backend) sends the
 |---|---|
 | `claude-cli` **(default)** | Anthropic, under your Claude login |
 | `anthropic-api` | Anthropic, under your API key |
+| `openai-api` | OpenAI, under your API key |
 | `ollama` | A local model: **nothing leaves your machine** |
 | `none` | Nothing is sent (no summary is made) |
 

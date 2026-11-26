@@ -2,6 +2,7 @@
 
     claude-cli     the locally installed Claude Code CLI, using your Claude login
     anthropic-api  the Anthropic API with an API key (needs the `anthropic` package)
+    openai-api     OpenAI (ChatGPT) with an API key (needs the `openai` package)
     ollama         a local model served by Ollama -- nothing leaves your machine
 
 A transcript is untrusted input: anyone in a meeting can say "ignore your
@@ -32,6 +33,7 @@ DEFAULT_SUMMARY_PROMPT = (
 )
 
 DEFAULT_API_MODEL = "claude-opus-5-5"
+DEFAULT_OPENAI_MODEL = "gpt-4o"
 # Models that accept server-side refusal fallbacks and the `effort` setting.
 _FALLBACK_MODEL_PREFIXES = ("claude-opus-5", "claude-fable-5", "claude-sonnet-5-5")
 
@@ -67,6 +69,11 @@ def unavailable_reason(settings: dict) -> str:
             import anthropic  # noqa: F401
         except ImportError:
             return "the 'anthropic' package is not installed"
+    if backend == "openai-api":
+        try:
+            import openai  # noqa: F401
+        except ImportError:
+            return "the 'openai' package is not installed"
     if backend == "ollama" and not settings["summary_model"]:
         return "set summary_model to an Ollama model name, e.g. \"llama3.1\""
     return ""
@@ -89,6 +96,8 @@ def summarize(transcript: str, settings: dict, cwd: Path | None = None) -> str:
         text = _claude_cli(transcript, prompt, settings["summary_model"], cwd)
     elif backend == "anthropic-api":
         text = _anthropic_api(transcript, prompt, settings)
+    elif backend == "openai-api":
+        text = _openai_api(transcript, prompt, settings)
     elif backend == "ollama":
         text = _ollama(transcript, prompt, settings)
     else:
@@ -171,6 +180,41 @@ def _anthropic_api(transcript: str, prompt: str, settings: dict) -> str:
         raise SummaryError("the model declined to summarize this transcript")
     text = "".join(block.text for block in message.content if block.type == "text")
     if message.stop_reason == "max_tokens":
+        text += "\n\n_(summary truncated)_"
+    return text
+
+
+# -- OpenAI (ChatGPT) ------------------------------------------------------
+def _openai_api(transcript: str, prompt: str, settings: dict) -> str:
+    try:
+        import openai
+    except ImportError as exc:
+        raise SummaryError("install the 'openai' package to use summary_backend "
+                           "\"openai-api\"") from exc
+
+    model = settings["summary_model"] or DEFAULT_OPENAI_MODEL
+    try:
+        # api_key=None lets the SDK use the OPENAI_API_KEY environment variable.
+        client = openai.OpenAI(api_key=settings["openai_api_key"] or None, max_retries=3)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": prompt},
+                      {"role": "user", "content": transcript}],
+        )
+    except openai.AuthenticationError as exc:
+        raise SummaryError("OpenAI API key missing or invalid (set OPENAI_API_KEY "
+                           "or openai_api_key)") from exc
+    except openai.RateLimitError as exc:
+        raise SummaryError("rate-limited by the OpenAI API; use 'Process pending' "
+                           "to retry later") from exc
+    except openai.APIConnectionError as exc:
+        raise SummaryError("could not reach the OpenAI API (network error)") from exc
+    except openai.OpenAIError as exc:
+        raise SummaryError(f"OpenAI API: {exc}") from exc
+
+    choice = resp.choices[0]
+    text = choice.message.content or ""
+    if choice.finish_reason == "length":
         text += "\n\n_(summary truncated)_"
     return text
 

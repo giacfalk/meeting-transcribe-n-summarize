@@ -10,6 +10,7 @@ faster-whisper>=1.0.0   # Faster, lower memory; downloads model on first run
 # Summaries. The default backend is the external `claude` CLI (Claude Code),
 # which uses your existing Claude login and needs no Python package.
 anthropic>=1.0          # only for summary_backend = "anthropic-api"
+openai>=1.0             # only for summary_backend = "openai-api" (ChatGPT)
 
 # Desktop integration
 pystray>=0.19 ; sys_platform != "darwin"   # notification-area (tray) icon

@@ -19,6 +19,12 @@ def test_settings_changes_ollama_model():
     assert "summary_model" not in settings_changes("base", "ollama", ollama_model="   ")
 
 
+def test_settings_changes_openai_key_only_for_openai():
+    assert settings_changes("base", "openai-api", openai_key="  sk-o  ") == {
+        "whisper_model": "base", "summary_backend": "openai-api", "openai_api_key": "sk-o"}
+    assert "openai_api_key" not in settings_changes("base", "claude-cli", openai_key="sk-o")
+
+
 def test_wizard_builds_and_writes_chosen_settings(tk_root, tmp_path, monkeypatch):
     monkeypatch.setattr(config, "app_dir", lambda: tmp_path)
     config.save_settings(config.defaults(), tmp_path / "settings.json")

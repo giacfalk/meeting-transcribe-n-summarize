@@ -35,6 +35,7 @@ def test_unavailable_reasons(monkeypatch):
     assert "summary_model" in summarize.unavailable_reason(settings(summary_backend="ollama"))
     assert summarize.unavailable_reason(settings(summary_backend="ollama",
                                                  summary_model="llama3.1")) == ""
+    assert summarize.unavailable_reason(settings(summary_backend="openai-api")) == ""  # installed
     monkeypatch.setattr(summarize, "find_claude_cli", lambda: "")
     assert "not found" in summarize.unavailable_reason(settings())
 
@@ -95,3 +96,11 @@ def test_anthropic_without_credentials_is_a_summary_error(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://127.0.0.1:9")   # never reach the network
     with pytest.raises(summarize.SummaryError):
         summarize.summarize("x", settings(summary_backend="anthropic-api"))
+
+
+def test_openai_without_credentials_is_a_summary_error(monkeypatch):
+    pytest.importorskip("openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:9")   # never reach the network
+    with pytest.raises(summarize.SummaryError):
+        summarize.summarize("x", settings(summary_backend="openai-api"))

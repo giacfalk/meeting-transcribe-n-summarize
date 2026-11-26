@@ -18,6 +18,7 @@ LANGUAGES = [AUTO, "en", "it", "de", "fr", "es", "pt", "nl", "pl", "sv", "da", "
 _MODEL_HINTS = {
     "claude-cli": "e.g. sonnet or opus; empty = the CLI's default",
     "anthropic-api": f"empty = {summarize.DEFAULT_API_MODEL}",
+    "openai-api": f"e.g. gpt-4o or gpt-4o-mini; empty = {summarize.DEFAULT_OPENAI_MODEL}",
     "ollama": "required, e.g. llama3.1 (run: ollama pull llama3.1)",
     "none": "",
 }
@@ -188,6 +189,9 @@ class SettingsDialog(tk.Toplevel):
         self.v_api_key, e = self._entry(f, "anthropic_api_key", show="•")
         self._row(f, "Anthropic API key", e, "Only for anthropic-api. The ANTHROPIC_API_KEY "
                   "environment variable is better: settings.json is plain text.")
+        self.v_openai_key, e = self._entry(f, "openai_api_key", show="•")
+        self._row(f, "OpenAI API key", e, "Only for openai-api. The OPENAI_API_KEY environment "
+                  "variable is better: settings.json is plain text.")
         self.v_ollama, e = self._entry(f, "ollama_url")
         self._row(f, "Ollama URL", e)
         self.t_prompt = tk.Text(f, width=40, height=4, wrap="word", font=(osutil.FONTS[0], 9))
@@ -303,6 +307,7 @@ class SettingsDialog(tk.Toplevel):
             "summary_backend": self.v_backend.get(),
             "summary_model": self.v_summary_model.get().strip(),
             "anthropic_api_key": self.v_api_key.get().strip(),
+            "openai_api_key": self.v_openai_key.get().strip(),
             "ollama_url": ollama,
             "summary_prompt": self.t_prompt.get("1.0", "end").strip(),
             "hotkey": hotkey,

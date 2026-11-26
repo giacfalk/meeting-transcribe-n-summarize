@@ -2,11 +2,23 @@
 
 ## Unreleased
 
+### New
+- **First-run setup wizard.** The first time you launch the app, a short welcome dialog lets
+  you pick a transcription model and a summary backend (and enter an API key or Ollama model
+  if the backend needs one) before you start. It is fully skippable, matches the app's dark
+  theme, and never appears again once `settings.json` exists.
+- **ChatGPT (OpenAI) summaries.** A new `openai-api` summary backend summarizes with the
+  OpenAI API. Set `OPENAI_API_KEY` (or `openai_api_key` in settings) and pick it in
+  *Settings → Summaries* or in the first-run wizard; the default model is `gpt-4o`. Like the
+  other backends it is text-in, text-out with no tools, and it is bundled in the Windows build.
+
 ### Changed
 - **License: switched from GPL-3.0 to the [PolyForm Noncommercial License 1.0.0](LICENSE).**
   Meeting Recorder is now free for any noncommercial use (personal, research, education,
   non-profits, government); commercial use requires a separate license from the author.
   Releases up to and including v1.4.2 remain available under the GPL-3.0.
+- **Typography cleanup.** Removed long dashes throughout the app, README, website and docs in
+  favour of plainer punctuation.
 
 ## 1.4.2
 

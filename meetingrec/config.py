@@ -10,7 +10,7 @@ SAMPLE_RATE = 16_000
 
 WHISPER_MODELS = ["tiny", "base", "small", "medium", "large-v3-turbo", "large-v3", "large-v2"]
 DEVICES = ["cpu", "auto", "cuda"]
-SUMMARY_BACKENDS = ["claude-cli", "anthropic-api", "ollama", "none"]
+SUMMARY_BACKENDS = ["claude-cli", "anthropic-api", "openai-api", "ollama", "none"]
 # Live ("near real time") draft while recording. off = transcribe only at stop.
 LIVE_MODES = ["off", "transcript", "transcript+notes", "auto-notes"]
 
@@ -55,6 +55,7 @@ DEFAULTS: dict = {
     "summary_model": "",            # "" = backend default (required for ollama)
     "summary_prompt": "",           # "" = built-in prompt (summarize.DEFAULT_SUMMARY_PROMPT)
     "anthropic_api_key": "",        # prefer the ANTHROPIC_API_KEY environment variable
+    "openai_api_key": "",           # prefer the OPENAI_API_KEY environment variable
     "ollama_url": "http://localhost:11434",
 }
 

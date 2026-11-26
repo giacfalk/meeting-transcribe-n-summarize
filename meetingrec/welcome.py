@@ -27,16 +27,20 @@ MODELS = [
 BACKENDS = [
     ("claude-cli", "Claude Code", "Uses your existing Claude login; no API key needed."),
     ("anthropic-api", "Anthropic API", "Uses an Anthropic API key."),
+    ("openai-api", "ChatGPT (OpenAI)", "Uses an OpenAI API key."),
     ("ollama", "Local model (Ollama)", "Runs fully offline on your machine."),
     ("none", "None", "Just transcripts, no summaries."),
 ]
 
 
-def settings_changes(model: str, backend: str, api_key: str = "", ollama_model: str = "") -> dict:
+def settings_changes(model: str, backend: str, api_key: str = "", ollama_model: str = "",
+                     openai_key: str = "") -> dict:
     """The settings.json keys the wizard writes for the chosen options."""
     changes = {"whisper_model": model, "summary_backend": backend}
     if backend == "anthropic-api" and api_key.strip():
         changes["anthropic_api_key"] = api_key.strip()
+    elif backend == "openai-api" and openai_key.strip():
+        changes["openai_api_key"] = openai_key.strip()
     elif backend == "ollama" and ollama_model.strip():
         changes["summary_model"] = ollama_model.strip()
     return changes
@@ -68,6 +72,7 @@ class WelcomeDialog(tk.Toplevel):
         self._model = tk.StringVar(value=start_model if start_model in valid else "base")
         self._backend = tk.StringVar(value=settings.get("summary_backend", "claude-cli"))
         self._api_key = tk.StringVar(value=settings.get("anthropic_api_key", ""))
+        self._openai_key = tk.StringVar(value=settings.get("openai_api_key", ""))
         self._ollama_model = tk.StringVar(value=settings.get("summary_model", "") or "llama3.1")
 
         wrap = tk.Frame(self, bg=BG, padx=26, pady=22)
@@ -172,6 +177,13 @@ class WelcomeDialog(tk.Toplevel):
                                                                         pady=(2, 0))
             self._note.config(text="Enter a key, or leave it blank to use the "
                               "ANTHROPIC_API_KEY environment variable.")
+        elif be == "openai-api":
+            tk.Label(self._extra, text="OpenAI API key", font=(SANS, 8), bg=BG,
+                     fg=TEXT_SUB).pack(anchor="w")
+            self._entry(self._extra, self._openai_key, show="•").pack(anchor="w", fill="x",
+                                                                      pady=(2, 0))
+            self._note.config(text="Enter a key, or leave it blank to use the "
+                              "OPENAI_API_KEY environment variable.")
         elif be == "ollama":
             tk.Label(self._extra, text="Ollama model", font=(SANS, 8), bg=BG,
                      fg=TEXT_SUB).pack(anchor="w")
@@ -207,7 +219,8 @@ class WelcomeDialog(tk.Toplevel):
 
     def _save(self):
         config.update_settings(settings_changes(
-            self._model.get(), self._backend.get(), self._api_key.get(), self._ollama_model.get()))
+            self._model.get(), self._backend.get(), self._api_key.get(),
+            self._ollama_model.get(), self._openai_key.get()))
 
     def _finish(self):
         try:

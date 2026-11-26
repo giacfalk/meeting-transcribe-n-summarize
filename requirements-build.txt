@@ -30,6 +30,7 @@ markdown-it-py==4.2.0
 mdurl==0.1.2
 numpy==2.4.4
 onnxruntime==1.26.0
+openai==3.60.0            # summary backend (ChatGPT); OpenAI API client
 packaging==26.3
 pefile==2024.8.26
 pillow==12.2.0
