@@ -46,7 +46,7 @@ class SettingsDialog(tk.Toplevel):
         notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
         tabs = {}
         for name in ("Transcription", "Audio", "Summaries", "Behavior"):
-            frame = ttk.Frame(notebook, padding=12)
+            frame = ttk.Frame(notebook, padding=(16, 14))
             frame.columnconfigure(1, weight=1)
             notebook.add(frame, text=t(f"settings.tab.{name.lower()}"))
             tabs[name] = frame
@@ -58,7 +58,8 @@ class SettingsDialog(tk.Toplevel):
         bottom = ttk.Frame(self, padding=(10, 8, 10, 10))
         bottom.pack(fill="x")
         ttk.Button(bottom, text=t("settings.edit_json"), command=self._edit_json).pack(side="left")
-        ttk.Button(bottom, text=t("common.save"), command=self.save).pack(side="right")
+        ttk.Button(bottom, text=t("common.save"), command=self.save,
+                   style="Primary.TButton").pack(side="right")
         ttk.Button(bottom, text=t("common.cancel"), command=self.destroy).pack(side="right", padx=6)
         ttk.Label(self, textvariable=self._error, foreground="#c62828",
                   wraplength=420).pack(fill="x", padx=12, pady=(0, 8))

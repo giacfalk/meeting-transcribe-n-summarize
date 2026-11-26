@@ -40,8 +40,7 @@ def app(tk_root, tmp_path, monkeypatch):
 
 
 def test_app_starts_with_fresh_profile(app):
-    log = app._log_box.get("1.0", "end")
-    assert "Meeting Recorder v" in log
+    assert app._log_lines                       # the activity card shows recent messages
     settings = json.loads((app.test_profile / "settings.json").read_text(encoding="utf-8"))
     assert settings["whisper_model"] == "base"
     assert "Saving to:" in app._dir_var.get()

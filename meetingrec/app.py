@@ -254,13 +254,18 @@ class App:
                        command=self._toggle_ontop, font=(SANS, 9), bg=BG, fg=TEXT_DIM,
                        selectcolor=BG, activebackground=BG, activeforeground=TEXT_DIM,
                        relief=tk.FLAT, bd=0).pack(pady=(5, 8))
-        self._log_box = scrolledtext.ScrolledText(
-            bottom, font=FONT_LOG, bg=BG_PANEL, fg=TEXT_SUB, insertbackground=TEXT_MAIN,
-            relief=tk.FLAT, height=5, state=tk.DISABLED, padx=10, pady=6)
-        self._log_box.pack(fill=tk.X)
+        # A friendly recent-activity card (the latest few messages, newest on top and
+        # brightest) instead of a scrolling console. The full log still goes to the file.
+        self._log_lines: list[str] = []
+        panel = tk.Frame(bottom, bg=BG_PANEL)
+        panel.pack(fill=tk.X)
+        self._log_inner = tk.Frame(panel, bg=BG_PANEL)
+        self._log_inner.pack(fill=tk.X, padx=12, pady=(9, 5))
         self._dir_var = tk.StringVar(value=self._saving_to_text())
-        tk.Label(bottom, textvariable=self._dir_var, font=(SANS, 8), bg=BG_PANEL, fg=TEXT_DIM,
-                 anchor="w", wraplength=LEFT_W - 36, justify="left").pack(fill=tk.X)
+        tk.Label(panel, textvariable=self._dir_var, font=(SANS, 8), bg=BG_PANEL, fg=TEXT_DIM,
+                 anchor="w", wraplength=LEFT_W - 48, justify="left").pack(fill=tk.X, padx=12,
+                                                                          pady=(0, 9))
+        self._render_log()
         tk.Frame(bottom, bg=BG, height=10).pack()
 
         # the right-hand live panels (shown only when a live mode is on)
@@ -309,32 +314,48 @@ class App:
         except tk.TclError:
             pass
         style.configure("TCombobox", fieldbackground=SURFACE, background=SURFACE,
-                        foreground=TEXT_MAIN, arrowcolor=TEXT_MAIN, bordercolor=SURFACE,
-                        lightcolor=SURFACE, darkcolor=SURFACE, relief="flat", padding=5)
+                        foreground=TEXT_MAIN, arrowcolor=TEXT_SUB, bordercolor=SURFACE,
+                        lightcolor=SURFACE, darkcolor=SURFACE, relief="flat", padding=6)
         style.map("TCombobox", fieldbackground=[("readonly", SURFACE)],
                   background=[("readonly", SURFACE)], foreground=[("readonly", TEXT_MAIN)],
                   selectbackground=[("readonly", SURFACE)],
-                  selectforeground=[("readonly", TEXT_MAIN)])
+                  selectforeground=[("readonly", TEXT_MAIN)], arrowcolor=[("active", TEXT_MAIN)],
+                  bordercolor=[("focus", ACCENT)], lightcolor=[("focus", ACCENT)],
+                  darkcolor=[("focus", ACCENT)])
         self.root.option_add("*TCombobox*Listbox.background", BG_PANEL)
         self.root.option_add("*TCombobox*Listbox.foreground", TEXT_MAIN)
         self.root.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
         self.root.option_add("*TCombobox*Listbox.selectForeground", BG)
+        self.root.option_add("*TCombobox*Listbox.font", f"{{{SANS}}} 10")
         style.configure("TFrame", background=BG)
         style.configure("TLabel", background=BG, foreground=TEXT_MAIN)
-        style.configure("TCheckbutton", background=BG, foreground=TEXT_MAIN)
+        style.configure("TCheckbutton", background=BG, foreground=TEXT_MAIN, focuscolor=BG)
         style.map("TCheckbutton", background=[("active", BG)])
         style.configure("TButton", background=SURFACE, foreground=TEXT_MAIN,
-                        bordercolor=SURFACE, focuscolor=SURFACE, relief="flat", padding=6)
+                        bordercolor=SURFACE, focuscolor=SURFACE, relief="flat", padding=(14, 7))
         style.map("TButton", background=[("active", SURFACE_HI)])
+        # Primary (green) button for the main action, e.g. Save in the Settings dialog.
+        style.configure("Primary.TButton", background=BTN_START, foreground=BG,
+                        bordercolor=BTN_START, focuscolor=BTN_START, relief="flat",
+                        padding=(18, 7), font=(SANS, 10, "bold"))
+        style.map("Primary.TButton", background=[("active", "#b8f0b2")])
         style.configure("TEntry", fieldbackground=SURFACE, foreground=TEXT_MAIN,
-                        bordercolor=SURFACE, insertcolor=TEXT_MAIN, padding=4)
+                        bordercolor=SURFACE, lightcolor=SURFACE, darkcolor=SURFACE,
+                        insertcolor=TEXT_MAIN, padding=5)
+        style.map("TEntry", bordercolor=[("focus", ACCENT)], lightcolor=[("focus", ACCENT)],
+                  darkcolor=[("focus", ACCENT)])
         style.configure("TSpinbox", fieldbackground=SURFACE, foreground=TEXT_MAIN,
-                        bordercolor=SURFACE, arrowcolor=TEXT_MAIN, padding=4)
-        style.configure("TNotebook", background=BG, bordercolor=SURFACE)
-        style.configure("TNotebook.Tab", background=BG_PANEL, foreground=TEXT_SUB,
-                        padding=(12, 5))
-        style.map("TNotebook.Tab", background=[("selected", SURFACE)],
-                  foreground=[("selected", TEXT_MAIN)])
+                        bordercolor=SURFACE, lightcolor=SURFACE, darkcolor=SURFACE,
+                        arrowcolor=TEXT_SUB, insertcolor=TEXT_MAIN, padding=5)
+        style.map("TSpinbox", bordercolor=[("focus", ACCENT)], lightcolor=[("focus", ACCENT)],
+                  darkcolor=[("focus", ACCENT)], arrowcolor=[("active", TEXT_MAIN)])
+        # Flat, borderless tabs: dim when idle, an accent label when selected.
+        style.configure("TNotebook", background=BG, bordercolor=BG, borderwidth=0,
+                        tabmargins=(6, 6, 6, 0))
+        style.configure("TNotebook.Tab", background=BG, foreground=TEXT_DIM, bordercolor=BG,
+                        borderwidth=0, padding=(16, 9), font=(SANS, 10))
+        style.map("TNotebook.Tab", background=[("selected", SURFACE), ("active", BG_PANEL)],
+                  foreground=[("selected", ACCENT), ("active", TEXT_SUB)])
         style.configure("TSeparator", background=SURFACE)
 
     def _set_model_choices(self):
@@ -1123,13 +1144,22 @@ class App:
         self._pending_btn.config(
             text=t("app.btn.pending_count", n=waiting) if waiting else t("app.btn.pending"))
 
+    def _render_log(self):
+        """Redraw the activity card: newest message on top and brightest, older ones faded."""
+        for widget in self._log_inner.winfo_children():
+            widget.destroy()
+        for i, line in enumerate(self._log_lines):
+            tk.Label(self._log_inner, text=line, bg=BG_PANEL,
+                     fg=TEXT_SUB if i == 0 else TEXT_DIM, font=(SANS, 8),
+                     wraplength=LEFT_W - 60, justify="left", anchor="w").pack(
+                         fill=tk.X, anchor="w", pady=1)
+
     def _log(self, msg: str, window: bool = True):
         now = datetime.now()
         if window:
-            self._log_box.config(state=tk.NORMAL)
-            self._log_box.insert(tk.END, f"{now:%H:%M:%S}  {msg}\n")
-            self._log_box.see(tk.END)
-            self._log_box.config(state=tk.DISABLED)
+            self._log_lines.insert(0, msg)
+            del self._log_lines[4:]          # keep only the few most recent on screen
+            self._render_log()
         try:   # also keep a log file for troubleshooting (one older copy is kept)
             path = config.log_path()
             path.parent.mkdir(parents=True, exist_ok=True)
