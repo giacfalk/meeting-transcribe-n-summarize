@@ -23,17 +23,17 @@ and each file ships with a SHA-256 checksum.
 |---|---|---|---|
 | [SignPath Foundation](https://signpath.org/) | free for open source | open-source projects that meet [its conditions](https://signpath.org/terms) | Signs builds produced by CI from the public repository. Each release is approved by hand. Integrates with GitHub Actions through [`SignPath/github-action-submit-signing-request`](https://github.com/SignPath/github-action-submit-signing-request). |
 | [Azure Artifact Signing](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options) (formerly Trusted Signing) | about $10 / month | organizations in the USA, Canada and Europe; *individual* developers in the USA and Canada only | No hardware token needed. Has a first-party GitHub Action ([`Azure/artifact-signing-action`](https://github.com/Azure/artifact-signing-action)). |
-| A commercial OV/EV certificate | about $200–400 / year | anyone, after identity checks | Since 2023 the private key must live on a hardware token or a cloud HSM, which makes CI signing more work. |
+| A commercial OV/EV certificate | about $200-400 / year | anyone, after identity checks | Since 2023 the private key must live on a hardware token or a cloud HSM, which makes CI signing more work. |
 
 **Note:** SignPath Foundation was the natural fit while this project was open-source. Since
 the switch to the **PolyForm Noncommercial** license (which is *not* OSI-approved), the
-project no longer qualifies for SignPath Foundation's free tier — the realistic options are
+project no longer qualifies for SignPath Foundation's free tier. The realistic options are
 now **Azure Artifact Signing** (~$10/month) or a **commercial OV/EV certificate**
-(~$200–400/year).
+(~$200-400/year).
 
 SignPath Foundation's conditions, for reference, were:
 
-- An OSI-approved license — GPL-3.0 qualified; the PolyForm Noncommercial license does not.
+- An OSI-approved license: GPL-3.0 qualified; the PolyForm Noncommercial license does not.
 - **No proprietary components in the signed build.** Check this one: the CTranslate2 wheel
   bundles NVIDIA's `cudnn64_9.dll` (for GPU transcription) and Intel's `libiomp5md.dll`.
   Leaving cuDNN out of the bundle would mean GPU users install cuDNN themselves, which

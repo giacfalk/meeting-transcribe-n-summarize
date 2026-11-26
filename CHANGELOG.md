@@ -13,7 +13,7 @@
 ### New
 - **Catch up on the earlier part of a meeting when you turn Live on partway through.**
   Switching the Live menu on mid-recording now also transcribes what was already recorded,
-  in the background, so the live transcript — and any notes — cover the whole meeting instead
+  in the background, so the live transcript (and any notes) cover the whole meeting instead
   of only what is said after you switch it on. New speech keeps transcribing live at the same
   time, and the earlier lines fill in above it once the background pass finishes. A new
   *Catch up on earlier audio…* option (*Settings → Transcription*, on by default) turns it off
@@ -31,7 +31,7 @@
   The v1.4.0 Windows build was packaged without the microphone-detection libraries
   (`pycaw`, `comtypes`, `psutil`): they were missing from the pinned build dependencies, so
   the frozen app silently fell back to the (now-stale) registry method and never showed the
-  prompt — even though it worked when run from source. They are now pinned and bundled, and
+  prompt, even though it worked when run from source. They are now pinned and bundled, and
   the build fails loudly if they are ever left out again.
 - **The meeting prompt is now a proper borderless pop-up** (no title bar), raises itself,
   beeps and briefly flashes the taskbar, so it is hard to miss over a full-screen call.
@@ -63,7 +63,7 @@
   builds stopped updating the microphone-usage timestamps in the registry
   (`CapabilityAccessManager`) in real time, so the app could no longer tell when a meeting
   app began using the mic, and the prompt stopped appearing. Detection now uses the Windows
-  audio session API — the same signal behind the taskbar mic indicator — which reports active
+  audio session API (the same signal behind the taskbar mic indicator), which reports active
   microphone use reliably; the registry method stays as a fallback for older Windows. (Adds
   the `pycaw` dependency on Windows.)
 
@@ -71,7 +71,7 @@
 
 ### New
 - **Live ("near real time") transcription.** A new **Live** menu on the main window (and in
-  *Settings → Transcription*) chooses what happens while you record: *Off* (unchanged —
+  *Settings → Transcription*) chooses what happens while you record: *Off* (unchanged:
   transcribe and summarize when you stop), *Live transcript* (a rolling draft transcript
   appears right in the window as the meeting goes), *Live transcript + notes (on demand)*
   (adds a *Generate now* button for running notes), or *Live transcript + auto notes* (also

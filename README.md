@@ -93,7 +93,7 @@ PulseAudio client library must be installed (for example
 |---|---|
 | **Start / Stop Recording** | Toggle recording. While recording, the window title shows `● REC mm:ss`, so you can see it on the taskbar too. |
 | **Model** | Whisper model: `tiny`, `base` (default), `small`, `medium`, `large-v3-turbo`, `large-v3`, `large-v2`. Larger models are more accurate but slower. `large-v3-turbo` is the best accuracy for the speed. |
-| **Live** | What appears *while* you record — see [Live transcript](#live-transcript-near-real-time). *Off* (the default) keeps the transcribe-at-stop behaviour. |
+| **Live** | What appears *while* you record. See [Live transcript](#live-transcript-near-real-time). *Off* (the default) keeps the transcribe-at-stop behaviour. |
 | **On top** | Keep the window above other windows during a call. |
 | **Process pending** | Transcribe any leftover recordings and summarize transcripts that don't have a summary yet. |
 | **Open folder** | Open the output folder. |
@@ -126,13 +126,13 @@ By default the transcript and summary are made when you press *Stop*. Set **Live
 main window, or in *Settings → Transcription*) to one of the live modes to also watch a rough
 draft build up in the window as you talk:
 
-- **Live transcript** — a running draft transcript, embedded in the window.
-- **Live transcript + notes (on demand)** — adds a *Generate now* button that writes running
+- **Live transcript**: a running draft transcript, embedded in the window.
+- **Live transcript + notes (on demand)**: adds a *Generate now* button that writes running
   notes (key points, decisions, action items) from the draft whenever you press it.
-- **Live transcript + auto notes** — the notes also refresh themselves every few minutes.
+- **Live transcript + auto notes**: the notes also refresh themselves every few minutes.
 
 The live draft uses a fast model (`live_model`, default `base`) on the mixed audio, so on the
-CPU it lags a little behind and is rougher than the final transcript — the clean,
+CPU it lags a little behind and is rougher than the final transcript. The clean,
 speaker-labelled transcript and the summary are still produced from the recording when you
 stop. The notes use your summary backend. Tune the pace with `live_interval` and
 `live_notes_interval`.
@@ -230,7 +230,7 @@ the file.
 | `keep_audio` | `false` | Keep the `.wav` next to the transcript |
 | `write_srt` | `false` | Also write an `.srt` subtitle file |
 | `silence_timeout` | `120` | Seconds of silence before recording stops itself (`0` = never) |
-| `silence_threshold` | `0.01` | Audio level (0–1) counted as silence. Used for auto-stop, and a channel that never gets louder than this isn't transcribed. |
+| `silence_threshold` | `0.01` | Audio level (0-1) counted as silence. Used for auto-stop, and a channel that never gets louder than this isn't transcribed. |
 | `hotkey` | `""` | Global start/stop shortcut, e.g. `"ctrl+alt+r"`. It works even when the app is minimized. On Linux it needs X11; not available on macOS yet. |
 | `meeting_prompt` | `true` | Offer to record when a meeting app starts using the microphone |
 | `meeting_apps` | *(list)* | Parts of app names that count as meeting apps (`"*"` = any app) |
@@ -252,7 +252,7 @@ contains file and device names, but no transcript text. Attach it when you repor
 | `claude-cli` (default) | [Claude Code](https://code.claude.com/docs/en/setup) installed and logged in, with `claude` on your `PATH` | Anthropic, under your Claude account |
 | `anthropic-api` | An Anthropic API key (`ANTHROPIC_API_KEY`). The default model is `claude-opus-5-5`. | Anthropic, under your API account |
 | `ollama` | [Ollama](https://ollama.com) running, with a model pulled (e.g. `ollama pull llama3.1`) and set as `summary_model` | **Nowhere.** It stays on your machine. |
-| `none` | – | – |
+| `none` | - | - |
 
 A transcript is untrusted input, because anyone in a meeting can say *"ignore your
 instructions and …"*. So the summarizer only ever gets text in and text out:
@@ -267,7 +267,7 @@ when you click *Process pending*.
 ## Privacy
 
 **In short:** recording and transcription are fully local. The only thing that can leave your
-machine is the transcript text sent to *summarize* it — and you choose where that goes, or
+machine is the transcript text sent to *summarize* it, and you choose where that goes, or
 turn it off.
 
 ### What stays on your machine
@@ -278,37 +278,37 @@ turn it off.
 - **Call detection** only reads *which* apps are using the microphone (the mic-usage the
   system already tracks). It never listens to, records or sends any audio.
 - **No telemetry.** There is no analytics, crash reporting or phone-home of any kind. The log
-  file (`meetingrec.log`) records file and device names only — never transcript text.
+  file (`meetingrec.log`) records file and device names only, never transcript text.
 - **Model download.** The first time you use a Whisper model it is downloaded from Hugging
   Face. That is model weights coming *to* you; none of your content is uploaded.
 
-### What is sent online — only to summarize
+### What is sent online, only to summarize
 
-The summary step — and the live **notes**, which use the same backend — sends the
+The summary step (and the live **notes**, which use the same backend) sends the
 **transcript text** to the backend you pick in *Settings → Summaries*:
 
 | Backend | Where the transcript text goes |
 |---|---|
 | `claude-cli` **(default)** | Anthropic, under your Claude login |
 | `anthropic-api` | Anthropic, under your API key |
-| `ollama` | A local model — **nothing leaves your machine** |
+| `ollama` | A local model: **nothing leaves your machine** |
 | `none` | Nothing is sent (no summary is made) |
 
 So **by default the transcript is sent to Anthropic to be summarized.** How that text is
 retained or used is governed by your Anthropic account's terms, which differ between the
-consumer Claude subscription and the API — review your account's data settings if your
+consumer Claude subscription and the API. Review your account's data settings if your
 meetings are sensitive. The transcript is treated as untrusted input, so the summarizer only
 ever gets text in and text out, with no tools and no saved session (see
 [Summary backends](#summary-backends)).
 
 ### Keeping everything offline
 
-- Set **`summary_backend`** to **`ollama`** (a local model) or **`none`** — then no content
+- Set **`summary_backend`** to **`ollama`** (a local model) or **`none`**, then no content
   ever leaves your machine.
 - Leave **`keep_audio`** off (the default) so raw audio isn't retained after transcription.
 
 Wherever your output folder points (including a cloud-synced folder such as OneDrive or
-Dropbox), the transcripts and summaries written there follow that folder's own syncing — set
+Dropbox), the transcripts and summaries written there follow that folder's own syncing. Set
 `output_dir` to a local-only path if you don't want them copied to the cloud.
 
 ## ⚠️ Recording consent
@@ -324,9 +324,9 @@ this tool lawfully.
 |---|---|---|---|
 | Recording (mic + system audio) | ✅ | ✅ PulseAudio / PipeWire | ✅ mic; system audio with BlackHole |
 | Transcription and summaries | ✅ | ✅ | ✅ |
-| Tray icon | ✅ | ✅ needs a tray (GNOME: the AppIndicator extension) | – (Dock icon) |
-| Offer to record when a call starts | ✅ | ✅ | – |
-| Global hotkey | ✅ | ✅ X11 only | – (not yet) |
+| Tray icon | ✅ | ✅ needs a tray (GNOME: the AppIndicator extension) | - (Dock icon) |
+| Offer to record when a call starts | ✅ | ✅ | - |
+| Global hotkey | ✅ | ✅ X11 only | - (not yet) |
 | Release builds | ✅ installer + zip | *experimental* | *experimental* |
 
 Every platform is tested in CI. The Linux tests include real audio capture through
@@ -403,15 +403,15 @@ you, a small donation helps me keep improving it:
   <a href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white"></a>
 </p>
 
-...or send to `giacomo.falchetta@gmail.com`. Starring the repo helps too — thank you!
+...or send to `giacomo.falchetta@gmail.com`. Starring the repo helps too. Thank you!
 
 ## License
 
 Copyright (c) 2026 Giacomo Falchetta
 
 Meeting Recorder is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**:
-you may use, modify and share it for **any noncommercial purpose** — personal use, research,
-education, non-profits, government — free of charge. **Commercial use requires a separate
+you may use, modify and share it for **any noncommercial purpose** (personal use, research,
+education, non-profits, government), free of charge. **Commercial use requires a separate
 license**; to use Meeting Recorder commercially, contact
 [giacomo.falchetta@gmail.com](mailto:giacomo.falchetta@gmail.com).
 
