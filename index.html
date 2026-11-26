@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>document.documentElement.classList.add('js')</script>
-<title>Meeting Recorder — private, local meeting transcription</title>
+<title>Meeting Recorder: private, local meeting transcription</title>
 <meta name="description" content="A one-button desktop app that records your meetings, transcribes them locally, labels who said what, and writes the summary. Your audio never leaves your machine. Windows, macOS, Linux.">
 <link rel="icon" href="assets/logo.png">
 <link rel="canonical" href="https://meeting-recorder.app/">
@@ -15,11 +15,11 @@
 <meta property="og:image" content="https://meeting-recorder.app/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Meeting Recorder — records and transcribes your meetings on your own machine">
+<meta property="og:image:alt" content="Meeting Recorder: records and transcribes your meetings on your own machine">
 <meta property="og:site_name" content="Meeting Recorder">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Meeting Recorder — private, local meeting transcription">
+<meta name="twitter:title" content="Meeting Recorder: private, local meeting transcription">
 <meta name="twitter:description" content="Records your meetings, transcribes them on your own machine, labels who said what, and writes the summary. No bot, no cloud.">
 <meta name="twitter:image" content="https://meeting-recorder.app/og-image.png">
 <meta name="author" content="Giacomo Falchetta">
@@ -43,10 +43,10 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "Does Meeting Recorder upload my audio anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Transcription runs locally on your machine with faster-whisper — no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model." } },
-    { "@type": "Question", "name": "Is Meeting Recorder free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license." } },
+    { "@type": "Question", "name": "Does Meeting Recorder upload my audio anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Transcription runs locally on your machine with faster-whisper, no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model." } },
+    { "@type": "Question", "name": "Is Meeting Recorder free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license." } },
     { "@type": "Question", "name": "Which platforms does it support?", "acceptedAnswer": { "@type": "Answer", "text": "Windows, macOS and Linux." } },
-    { "@type": "Question", "name": "Does it work with Zoom, Microsoft Teams and Google Meet?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It records your microphone and the system audio together, so it captures any meeting app — no plugins and no bots." } },
+    { "@type": "Question", "name": "Does it work with Zoom, Microsoft Teams and Google Meet?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It records your microphone and the system audio together, so it captures any meeting app, no plugins and no bots." } },
     { "@type": "Question", "name": "Can it run completely offline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online." } },
     { "@type": "Question", "name": "Do I need an account or an API key?", "acceptedAnswer": { "@type": "Answer", "text": "No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model." } }
   ]
@@ -229,14 +229,14 @@
       <a class="btn btn-ghost" href="#support">♥ Support</a>
     </div>
     <div class="meta"><b>Windows</b> · <b>macOS</b> · <b>Linux</b> &nbsp;•&nbsp; One button &nbsp;•&nbsp; 100% local transcription</div>
-    <div class="free-pill">💛 100% free &amp; donor‑supported — no subscriptions, no ads, no selling your data</div>
+    <div class="free-pill">💛 100% free &amp; donor‑supported, no subscriptions, no ads, no selling your data</div>
   </div>
 </header>
 
 <section class="demo">
   <div class="wrap">
     <h2>See it in action</h2>
-    <p class="lead">Record, and the transcript builds as you talk — each line labelled by speaker. A summary is one click away.</p>
+    <p class="lead">Record, and the transcript builds as you talk, each line labelled by speaker. A summary is one click away.</p>
     <div class="app">
       <div class="titlebar">
         <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
@@ -260,10 +260,10 @@
           <div class="pane">
             <div class="plabel">Live transcript</div>
             <div class="lines">
-              <div class="line"><span class="ts">[00:03]</span> <span class="me">Me:</span> Let's kick off the Q3 planning review — can everyone see my screen?</div>
+              <div class="line"><span class="ts">[00:03]</span> <span class="me">Me:</span> Let's kick off the Q3 planning review, can everyone see my screen?</div>
               <div class="line"><span class="ts">[00:08]</span> <span class="ot">Others:</span> Yep, looks good. Shall we start with the roadmap?</div>
               <div class="line"><span class="ts">[00:14]</span> <span class="me">Me:</span> Sure. The big question is whether we ship the beta on the 14th.</div>
-              <div class="line"><span class="ts">[00:21]</span> <span class="ot">Others:</span> We're close — release notes are the only blocker.</div>
+              <div class="line"><span class="ts">[00:21]</span> <span class="ot">Others:</span> We're close, release notes are the only blocker.</div>
               <div class="line"><span class="ts">[00:27]</span> <span class="me">Me:</span> Great. Sam, can you draft those by Thursday?</div>
               <div class="line"><span class="ts">[00:31]</span> <span class="ot">Others:</span> On it.<span class="cursor"></span></div>
             </div>
@@ -290,7 +290,7 @@
       <div class="lock">🔒</div>
       <div>
         <h3>Private by design</h3>
-        <p>Transcription runs locally with <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a>. No bot joins your call, no audio is uploaded, and nothing is stored on someone else's server. The only thing that can go online is the text sent to <em>summarize</em> it — and even that can run fully offline with a local model through <a href="https://ollama.com">Ollama</a>.</p>
+        <p>Transcription runs locally with <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a>. No bot joins your call, no audio is uploaded, and nothing is stored on someone else's server. The only thing that can go online is the text sent to <em>summarize</em> it, and even that can run fully offline with a local model through <a href="https://ollama.com">Ollama</a>.</p>
       </div>
     </div>
   </div>
@@ -304,9 +304,9 @@
       <div class="card"><div class="ico">🎙️</div><h3>One button</h3><p>Click <b>Start Recording</b>, then <b>Stop</b>. That's all you have to do.</p></div>
       <div class="card"><div class="ico">🧑‍🤝‍🧑</div><h3>Who said what</h3><p>Your microphone and the system audio are recorded on separate channels, so every line is labelled <b>Me</b> or <b>Others</b>.</p></div>
       <div class="card"><div class="ico">💻</div><h3>Local transcription</h3><p>faster-whisper runs on your machine, with automatic language detection and timestamps. The audio never leaves it.</p></div>
-      <div class="card"><div class="ico">📝</div><h3>Automatic summaries</h3><p>Markdown notes — overview, key points, decisions, action items — from Claude, the Anthropic API, or a fully local model.</p></div>
+      <div class="card"><div class="ico">📝</div><h3>Automatic summaries</h3><p>Markdown notes (overview, key points, decisions, action items) from Claude, the Anthropic API, or a fully local model.</p></div>
       <div class="card"><div class="ico">🔔</div><h3>Offers to record</h3><p>When Zoom, Teams or Meet start using the mic, a small prompt asks whether to record. It never records by itself.</p></div>
-      <div class="card"><div class="ico">⚡</div><h3>Live transcript</h3><p>Optionally watch a rough transcript build up as you talk, and get running notes on the fly — on by choice, off by default.</p></div>
+      <div class="card"><div class="ico">⚡</div><h3>Live transcript</h3><p>Optionally watch a rough transcript build up as you talk, and get running notes on the fly, on by choice, off by default.</p></div>
       <div class="card"><div class="ico">💾</div><h3>Crash-safe</h3><p>Audio is written to disk while you record, so a crash or power cut loses only the last couple of seconds.</p></div>
       <div class="card"><div class="ico">🖥️</div><h3>Works everywhere</h3><p>Windows, macOS and Linux. A tray icon, a global hotkey, <code>.srt</code> subtitles and optional GPU transcription.</p></div>
     </div>
@@ -316,7 +316,7 @@
 <section id="download">
   <div class="wrap">
     <h2>Download</h2>
-    <p class="lead">Free for personal and any noncommercial use. Pick your platform — the latest release is on GitHub.</p>
+    <p class="lead">Free for personal and any noncommercial use. Pick your platform, the latest release is on GitHub.</p>
     <div class="dl">
       <div class="card">
         <div class="ico">🪟</div><div class="plat">Windows</div>
@@ -334,17 +334,17 @@
         <a class="btn btn-dark btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Download</a>
       </div>
     </div>
-    <p class="note">The builds aren't code-signed yet — on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time.<br>⚠️ Always get everyone's consent before recording a meeting.</p>
+    <p class="note">The builds aren't code-signed yet, on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time.<br>⚠️ Always get everyone's consent before recording a meeting.</p>
   </div>
 </section>
 
 <section class="soft" id="faq">
   <div class="wrap faq">
     <h2>Frequently asked questions</h2>
-    <details><summary>Does Meeting Recorder upload my audio anywhere?</summary><p>No. Transcription runs locally on your machine with faster-whisper — no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model.</p></details>
-    <details><summary>Is Meeting Recorder free?</summary><p>Yes — free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license.</p></details>
+    <details><summary>Does Meeting Recorder upload my audio anywhere?</summary><p>No. Transcription runs locally on your machine with faster-whisper, no audio is uploaded and no bot joins your call. Only the finished text can optionally be sent to summarize it, and even that can run fully offline with a local model.</p></details>
+    <details><summary>Is Meeting Recorder free?</summary><p>Yes, free for personal and any noncommercial use (research, education, non-profits, government). Commercial use needs a separate license.</p></details>
     <details><summary>Which platforms does it support?</summary><p>Windows, macOS and Linux.</p></details>
-    <details><summary>Does it work with Zoom, Microsoft Teams and Google Meet?</summary><p>Yes. It records your microphone and the system audio together, so it captures any meeting app — no plugins and no bots.</p></details>
+    <details><summary>Does it work with Zoom, Microsoft Teams and Google Meet?</summary><p>Yes. It records your microphone and the system audio together, so it captures any meeting app, no plugins and no bots.</p></details>
     <details><summary>Can it run completely offline?</summary><p>Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online.</p></details>
     <details><summary>Do I need an account or an API key?</summary><p>No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model.</p></details>
   </div>
@@ -353,12 +353,12 @@
 <section id="support">
   <div class="wrap">
     <h2>Support the project</h2>
-    <p class="lead">Meeting Recorder is free, and kept going by donations — not ads, subscriptions, or selling your data. If it saves you time, a small contribution keeps it improving.</p>
+    <p class="lead">Meeting Recorder is free, and kept going by donations, not ads, subscriptions, or selling your data. If it saves you time, a small contribution keeps it improving.</p>
     <div class="support-ctas">
       <a class="btn btn-pink" href="https://github.com/sponsors/giacfalk">♥ Sponsor on GitHub</a>
       <a class="btn btn-primary" href="https://www.paypal.com/donate/?business=giacomo.falchetta%40gmail.com&no_recurring=0&item_name=Support%20Meeting%20Recorder&currency_code=EUR">Donate via PayPal</a>
     </div>
-    <p class="support-note">Using it commercially? A commercial license is available — email <a href="mailto:giacomo.falchetta@gmail.com">giacomo.falchetta@gmail.com</a>. Starring the <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize">repo</a> helps too. Thank you! 🙏</p>
+    <p class="support-note">Using it commercially? A commercial license is available, email <a href="mailto:giacomo.falchetta@gmail.com">giacomo.falchetta@gmail.com</a>. Starring the <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize">repo</a> helps too. Thank you! 🙏</p>
   </div>
 </section>
 
@@ -370,7 +370,7 @@
     <span class="sep">·</span>
     <a href="https://github.com/sponsors/giacfalk">Sponsor</a>
     <div>Built by Giacomo Falchetta.</div>
-    <div class="warn">⚠️ Record responsibly — always get the consent of everyone in the meeting.</div>
+    <div class="warn">⚠️ Record responsibly, always get the consent of everyone in the meeting.</div>
   </div>
 </footer>
 
