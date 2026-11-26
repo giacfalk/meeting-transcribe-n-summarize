@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
-from . import __version__, config, files, meetings, osutil, summarize, tray
+from . import __version__, config, files, i18n, meetings, osutil, summarize, tray
 from .audio import DualChannelRecorder, device_names, repair_wav, soundcard_available
 from .hotkey import GlobalHotkey
 from .live import LiveTranscriber
@@ -100,6 +100,7 @@ class App:
 
         first_run = not config.settings_path().exists()   # before load_settings creates it
         self.settings, setting_warnings = config.load_settings()
+        i18n.set_language(self.settings["ui_language"])   # the app's own text, before any t()
         self._settings_mtime = self._mtime()
 
         self._recording   = False

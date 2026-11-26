@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from . import osutil
+from . import i18n, osutil
 
 SAMPLE_RATE = 16_000
 
@@ -51,6 +51,8 @@ DEFAULTS: dict = {
     "meeting_apps": MEETING_APPS,
     "tray_icon": True,              # icon in the notification area (Windows, Linux)
     "minimize_to_tray": False,      # minimizing hides the window; restore it from the tray
+    "ui_language": "en",            # language of the app's own text (see i18n.LANGUAGES);
+                                    # takes effect on the next launch
     "summary_backend": "claude-cli",  # see SUMMARY_BACKENDS
     "summary_model": "",            # "" = backend default (required for ollama)
     "summary_prompt": "",           # "" = built-in prompt (summarize.DEFAULT_SUMMARY_PROMPT)
@@ -59,7 +61,8 @@ DEFAULTS: dict = {
     "ollama_url": "http://localhost:11434",
 }
 
-_CHOICES = {"device": DEVICES, "summary_backend": SUMMARY_BACKENDS, "live_mode": LIVE_MODES}
+_CHOICES = {"device": DEVICES, "summary_backend": SUMMARY_BACKENDS, "live_mode": LIVE_MODES,
+            "ui_language": list(i18n.LANGUAGES)}
 
 
 def defaults() -> dict:

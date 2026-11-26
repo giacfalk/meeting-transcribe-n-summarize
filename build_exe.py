@@ -10,6 +10,7 @@ Build script -- packages the app with PyInstaller for the OS it runs on.
     python build_exe.py --zip        ...and package it into release/ for publishing
     python build_exe.py --installer  ...and (Windows, needs Inno Setup 6) build the installer
     python build_exe.py --icons      only redraw icon.ico and assets/logo.png
+    python build_exe.py --no-translate   skip refreshing the UI translations
 """
 
 import hashlib
@@ -134,6 +135,7 @@ def build(icon: Path) -> Path:
         # the window icon at runtime (icon.ico on Windows, the PNG elsewhere)
         "--add-data", f"{icon}{sep}.",
         "--add-data", f"{logo}{sep}assets",
+        "--add-data", f"{HERE / 'meetingrec' / 'locales'}{sep}meetingrec/locales",   # UI languages
         # collect native libs for audio + AI backends
         "--collect-all", "soundcard",
         "--collect-all", "faster_whisper",
@@ -193,6 +195,20 @@ def finish_macos_app(app: Path) -> None:
         plistlib.dump(info, f)
     # Editing Info.plist invalidates PyInstaller's ad-hoc signature: sign again.
     subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
+
+
+# -- Translations ------------------------------------------------------------
+def run_translate() -> None:
+    """Refresh meetingrec/locales/<code>.json from en.json before bundling.
+
+    Uses tools/translate.py (the local Claude CLI). Non-fatal: on a machine without
+    the CLI (e.g. CI) it just warns, and whatever translations are committed ship as is.
+    """
+    print("Step 1b: updating UI translations from en.json...")
+    try:
+        subprocess.run([sys.executable, str(HERE / "tools" / "translate.py")], check=False)
+    except OSError as exc:
+        print(f"  (skipped translation: {exc})")
 
 
 # -- Release packages --------------------------------------------------------
@@ -262,6 +278,8 @@ if __name__ == "__main__":
     icon = make_icon()
     if "--icons" in sys.argv:
         sys.exit(0)
+    if "--no-translate" not in sys.argv:
+        run_translate()
     print("Step 2: packaging with PyInstaller...")
     build(icon)
     if "--zip" in sys.argv:
