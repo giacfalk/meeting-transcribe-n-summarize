@@ -11,6 +11,12 @@
   OpenAI API. Set `OPENAI_API_KEY` (or `openai_api_key` in settings) and pick it in
   *Settings → Summaries* or in the first-run wizard; the default model is `gpt-4o`. Like the
   other backends it is text-in, text-out with no tools, and it is bundled in the Windows build.
+- **The interface speaks 15 languages.** English, Italian, Spanish, French, German, Portuguese,
+  Dutch, Polish, Turkish, Russian, Ukrainian, Chinese, Japanese, Korean and Hindi. Pick one
+  under *Settings → Behavior → App language* or in the first-run wizard (`ui_language` in
+  settings); it applies on the next launch. English is the source (`meetingrec/locales/en.json`)
+  and the other languages are regenerated from it at build time by the local Claude CLI, so a
+  wording change re-translates only what changed. Transcription and summaries are unaffected.
 
 ### Changed
 - **License: switched from GPL-3.0 to the [PolyForm Noncommercial License 1.0.0](LICENSE).**

@@ -236,7 +236,8 @@ the file.
 | `meeting_apps` | *(list)* | Parts of app names that count as meeting apps (`"*"` = any app) |
 | `tray_icon` | `true` | Show the tray icon (Windows, Linux) |
 | `minimize_to_tray` | `false` | Minimizing hides the window; bring it back from the tray icon |
-| `summary_backend` | `"claude-cli"` | `"claude-cli"`, `"anthropic-api"`, `"ollama"` or `"none"` |
+| `ui_language` | `"en"` | Language of the app's interface (menus, buttons, dialogs); see [App language](#app-language). Takes effect on the next launch. |
+| `summary_backend` | `"claude-cli"` | `"claude-cli"`, `"anthropic-api"`, `"openai-api"`, `"ollama"` or `"none"` |
 | `summary_model` | `""` | Model for the summary backend (`""` = its default; required for Ollama) |
 | `summary_prompt` | `""` | Your own summary instructions (`""` = the built-in prompt) |
 | `anthropic_api_key` | `""` | API key for `anthropic-api`. The `ANTHROPIC_API_KEY` environment variable is better. |
@@ -245,6 +246,24 @@ the file.
 
 The app also keeps a log (`meetingrec.log`, next to `settings.json`) of what it did. It
 contains file and device names, but no transcript text. Attach it when you report a problem.
+
+### App language
+
+The interface is available in several languages: English, Italian, Spanish, French, German,
+Portuguese, Dutch, Polish, Turkish, Russian, Ukrainian, Chinese, Japanese, Korean and Hindi.
+Pick one under **Settings → Behavior → App language** (the first-run wizard also offers it),
+or set `ui_language` in `settings.json` to a code like `"it"` or `"de"`. It takes effect the
+next time you start the app, and anything not yet translated falls back to English.
+
+This only changes the app's own text. Transcription and summaries are unaffected: they follow
+the audio and the `language` option above.
+
+**Translations are generated from English.** `meetingrec/locales/en.json` is the one file to
+edit; the other `locales/<code>.json` files are produced from it at build time by the local
+Claude CLI (`tools/translate.py`), re-translating only the strings whose English changed. To
+add a language, add its code to `LANGUAGES` in `meetingrec/i18n.py` and run
+`python tools/translate.py`. See [`meetingrec/locales/README.md`](meetingrec/locales/README.md)
+for details.
 
 ### Summary backends
 
