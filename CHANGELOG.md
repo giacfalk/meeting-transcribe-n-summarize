@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
 
 ### New
 - **First-run setup wizard.** The first time you launch the app, a short welcome dialog lets
@@ -25,6 +25,10 @@
   Releases up to and including v1.4.2 remain available under the GPL-3.0.
 - **Typography cleanup.** Removed long dashes throughout the app, README, website and docs in
   favour of plainer punctuation.
+- **Refreshed look.** The Settings dialog was rebuilt with the app's own dark widgets (flat
+  tabs, custom dropdowns and steppers, accent focus rings, a green primary Save) instead of
+  the stock theme, and the main window now shows the app icon in the header and a roomier
+  recent-activity panel in place of the old scrolling log box.
 
 ## 1.4.2
 
