@@ -71,6 +71,8 @@ def live_label(mode: str) -> str:
 
 
 def live_hint(mode: str) -> str:
+    if mode == "off":
+        return ""                      # "off" has no hint (its row is hidden)
     return t(f"app.live.hint.{_LIVE_KEYS.get(mode, 'off')}")
 
 
@@ -179,6 +181,18 @@ class App:
 
     # ---- UI construction ------------------------------------------------
 
+    def _header_logo(self):
+        """A small app-icon image for the header, or None to fall back to a dot."""
+        try:
+            from PIL import Image, ImageTk
+            return ImageTk.PhotoImage(Image.open(LOGO).resize((22, 22), Image.LANCZOS))
+        except Exception:
+            try:
+                img = tk.PhotoImage(file=str(LOGO))
+                return img.subsample(max(1, img.width() // 22))
+            except Exception:
+                return None
+
     def _build(self):
         self._setup_styles()
 
@@ -187,9 +201,13 @@ class App:
         header.pack(fill=tk.X)
         bar = tk.Frame(header, bg=BG_HEADER)
         bar.pack(fill=tk.X, padx=16, pady=10)
-        tk.Label(bar, text="●", font=(SANS, 11), bg=BG_HEADER, fg=ACCENT).pack(side=tk.LEFT)
+        self._logo_img = self._header_logo()
+        if self._logo_img is not None:
+            tk.Label(bar, image=self._logo_img, bg=BG_HEADER).pack(side=tk.LEFT)
+        else:
+            tk.Label(bar, text="●", font=(SANS, 11), bg=BG_HEADER, fg=ACCENT).pack(side=tk.LEFT)
         tk.Label(bar, text=TITLE, font=(SANS, 12, "bold"), bg=BG_HEADER,
-                 fg=TEXT_MAIN).pack(side=tk.LEFT, padx=(7, 0))
+                 fg=TEXT_MAIN).pack(side=tk.LEFT, padx=(8, 0))
         self._status_var = tk.StringVar(value=t("app.status.ready"))
         self._status_lbl = tk.Label(bar, textvariable=self._status_var, font=FONT_STATUS,
                                      bg=BG_HEADER, fg=TEXT_SUB)
@@ -232,41 +250,47 @@ class App:
         self._live_box.grid(row=1, column=1, sticky="ew", pady=3)
         self._live_box.bind("<<ComboboxSelected>>", self._on_live_mode_changed)
 
-        self._live_hint_var = tk.StringVar(value=live_hint(self.settings["live_mode"]))
-        tk.Label(col, textvariable=self._live_hint_var, font=(SANS, 8), bg=BG, fg=TEXT_DIM,
-                 wraplength=LEFT_W - 52, justify="left", anchor="w").pack(fill=tk.X, pady=(4, 10))
+        # The live-mode hint sits just under the controls; it is hidden for "off"
+        # (which has no hint) so that space goes to the activity area below.
+        self._live_hint_var = tk.StringVar()
+        self._live_hint_lbl = tk.Label(col, textvariable=self._live_hint_var, font=(SANS, 8),
+                                       bg=BG, fg=TEXT_DIM, wraplength=LEFT_W - 52,
+                                       justify="left", anchor="w")
 
-        # bottom of the control column (pinned): status, actions, log
-        bottom = tk.Frame(col, bg=BG)
-        bottom.pack(side=tk.BOTTOM, fill=tk.X)
+        # Queue status and the action buttons, right under the controls.
         self._queue_var = tk.StringVar(value="")
-        self._queue_lbl = tk.Label(bottom, textvariable=self._queue_var, font=FONT_BODY,
+        self._queue_lbl = tk.Label(col, textvariable=self._queue_var, font=FONT_BODY,
                                    bg=BG, fg=TEXT_SUB)
-        self._queue_lbl.pack(pady=(2, 4))
-        btn_row = tk.Frame(bottom, bg=BG)
+        self._queue_lbl.pack(pady=(8, 4))
+        btn_row = tk.Frame(col, bg=BG)
         btn_row.pack()
         self._pending_btn = self._small_button(btn_row, t("app.btn.pending"),
                                                self._process_pending)
         self._small_button(btn_row, t("app.btn.open_folder"), self._open_folder)
         self._small_button(btn_row, t("app.btn.settings"), self._open_settings)
         self._ontop_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(bottom, text=t("app.check.ontop"), variable=self._ontop_var,
+        tk.Checkbutton(col, text=t("app.check.ontop"), variable=self._ontop_var,
                        command=self._toggle_ontop, font=(SANS, 9), bg=BG, fg=TEXT_DIM,
                        selectcolor=BG, activebackground=BG, activeforeground=TEXT_DIM,
-                       relief=tk.FLAT, bd=0).pack(pady=(5, 8))
-        # A friendly recent-activity card (the latest few messages, newest on top and
-        # brightest) instead of a scrolling console. The full log still goes to the file.
-        self._log_lines: list[str] = []
-        panel = tk.Frame(bottom, bg=BG_PANEL)
-        panel.pack(fill=tk.X)
-        self._log_inner = tk.Frame(panel, bg=BG_PANEL)
-        self._log_inner.pack(fill=tk.X, padx=12, pady=(9, 5))
+                       relief=tk.FLAT, bd=0).pack(pady=(6, 8))
+
+        # The "saving to" line is pinned at the very bottom of the column.
         self._dir_var = tk.StringVar(value=self._saving_to_text())
-        tk.Label(panel, textvariable=self._dir_var, font=(SANS, 8), bg=BG_PANEL, fg=TEXT_DIM,
-                 anchor="w", wraplength=LEFT_W - 48, justify="left").pack(fill=tk.X, padx=12,
-                                                                          pady=(0, 9))
+        tk.Label(col, textvariable=self._dir_var, font=(SANS, 8), bg=BG, fg=TEXT_DIM,
+                 anchor="w", wraplength=LEFT_W - 44, justify="left").pack(
+                     side=tk.BOTTOM, fill=tk.X, pady=(6, 12))
+
+        # A friendly recent-activity card (newest message on top and brightest) instead of
+        # a scrolling console. It expands to fill the room between the buttons and the
+        # "saving to" line, so long messages are not cut off. The full log still goes to the file.
+        self._log_lines: list[str] = []
+        panel = tk.Frame(col, bg=BG_PANEL)
+        panel.pack(fill=tk.BOTH, expand=True, pady=(2, 0))
+        self._log_inner = tk.Frame(panel, bg=BG_PANEL)
+        self._log_inner.pack(side=tk.TOP, fill=tk.X, anchor="n", padx=12, pady=10)
         self._render_log()
-        tk.Frame(bottom, bg=BG, height=10).pack()
+
+        self._set_live_hint(self.settings["live_mode"])   # show the hint only if the mode has one
 
         # the right-hand live panels (shown only when a live mode is on)
         self._build_live_area(main)
@@ -391,7 +415,7 @@ class App:
         self._log("Settings updated.")
         self._model_var.set(self.settings["whisper_model"])
         self._live_var.set(live_label(self.settings["live_mode"]))
-        self._live_hint_var.set(live_hint(self.settings["live_mode"]))
+        self._set_live_hint(self.settings["live_mode"])
         self._set_model_choices()
         self._dir_var.set(self._saving_to_text())
         if self.settings["live_mode"] != old["live_mode"]:
@@ -732,6 +756,16 @@ class App:
             silence_threshold=s["silence_threshold"], start_offset=start_offset,
             on_segments=self._on_live_segments, log=self._log_from_thread)
 
+    def _set_live_hint(self, mode: str):
+        """Show the hint for the live mode, or hide the row entirely when it has none."""
+        text = live_hint(mode)
+        self._live_hint_var.set(text)
+        if text:
+            if not self._live_hint_lbl.winfo_manager():
+                self._live_hint_lbl.pack(fill=tk.X, pady=(4, 8), before=self._queue_lbl)
+        else:
+            self._live_hint_lbl.pack_forget()
+
     def _on_live_mode_changed(self, _event=None):
         mode = live_mode_by_label(self._live_var.get())
         changed = mode != self.settings["live_mode"]
@@ -741,7 +775,7 @@ class App:
             self._settings_mtime = self._mtime()
         except OSError as exc:
             self._log(f"Could not save settings: {exc}")
-        self._live_hint_var.set(live_hint(mode))
+        self._set_live_hint(mode)
         self._apply_live_layout(resize=changed)
         if changed and self._recording:
             self._switch_live_while_recording(mode)   # take effect now, not next time
