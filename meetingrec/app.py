@@ -23,6 +23,7 @@ from .transcribe import (
     to_srt,
     transcribe_recording,
 )
+from .welcome import WelcomeDialog
 
 # -- Path resolution (works both in dev and when frozen by PyInstaller) --
 # PyInstaller 6 puts bundled data files in _internal/ (sys._MEIPASS), not next to the .exe.
@@ -97,6 +98,7 @@ class App:
         if osutil.MACOS:
             self.root.tk.createcommand("tk::mac::Quit", self._on_close)   # Cmd+Q
 
+        first_run = not config.settings_path().exists()   # before load_settings creates it
         self.settings, setting_warnings = config.load_settings()
         self._settings_mtime = self._mtime()
 
@@ -166,6 +168,9 @@ class App:
         # Pick up edits to settings.json when the user comes back to the window.
         self.root.bind("<FocusIn>", lambda _e: self._reload_settings())
         self.root.bind("<Unmap>", self._on_unmap)
+
+        if first_run:   # one-time setup wizard the first time the app runs
+            self.root.after(250, self._show_welcome)
 
     # ---- UI construction ------------------------------------------------
 
@@ -379,6 +384,17 @@ class App:
             return
         self._settings_win = SettingsDialog(self.root, self.settings,
                                             on_saved=self._reload_settings)
+
+    def _show_welcome(self):
+        """First-run setup wizard; writes the chosen settings, then picks them up."""
+        def done(open_settings: bool):
+            self._reload_settings()
+            if open_settings:
+                self._open_settings()
+        try:
+            WelcomeDialog(self.root, self.settings, done)
+        except Exception as exc:
+            self._log(f"Welcome setup skipped: {exc}")
 
     def _report_summary_backend(self):
         reason = summarize.unavailable_reason(self.settings)
