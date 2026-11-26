@@ -142,20 +142,20 @@ def test_live_mode_persists_and_wires_up(app, monkeypatch):
 
 
 def test_live_layout_follows_mode_and_notes_render_markdown(app):
-    from meetingrec.app import LIVE_LABELS
+    from meetingrec.app import live_label
 
-    app._live_var.set(LIVE_LABELS["off"])
+    app._live_var.set(live_label("off"))
     app._on_live_mode_changed()
     app.root.update()
     assert app._live_frame.winfo_manager() == ""              # off: hidden
 
-    app._live_var.set(LIVE_LABELS["transcript+notes"])
+    app._live_var.set(live_label("transcript+notes"))
     app._on_live_mode_changed()
     app.root.update()
     assert app._live_frame.winfo_manager() == "pack"          # shown
     assert app._notes_frame.winfo_manager() == "pack"         # notes shown
 
-    app._live_var.set(LIVE_LABELS["transcript"])
+    app._live_var.set(live_label("transcript"))
     app._on_live_mode_changed()
     app.root.update()
     assert app._notes_frame.winfo_manager() == ""             # notes hidden again

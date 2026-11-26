@@ -8,6 +8,7 @@ import logging
 import threading
 from pathlib import Path
 
+from .i18n import t
 from .osutil import MACOS
 
 
@@ -66,14 +67,14 @@ class TrayIcon:
         self._recording = recording_badge(self._idle)
         self._is_recording = is_recording
         menu = pystray.Menu(
-            pystray.MenuItem("Show Meeting Recorder", lambda: on_show(), default=True),
+            pystray.MenuItem(lambda _item: t("app.tray.show"), lambda: on_show(), default=True),
             pystray.MenuItem(
-                lambda _item: "Stop recording" if is_recording() else "Start recording",
+                lambda _item: t("app.tray.stop") if is_recording() else t("app.tray.start"),
                 lambda: on_toggle()),
-            pystray.MenuItem("Process pending", lambda: on_process_pending()),
-            pystray.MenuItem("Open folder", lambda: on_open_folder()),
+            pystray.MenuItem(lambda _item: t("app.btn.pending"), lambda: on_process_pending()),
+            pystray.MenuItem(lambda _item: t("app.btn.open_folder"), lambda: on_open_folder()),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit", lambda: on_quit()),
+            pystray.MenuItem(lambda _item: t("app.tray.quit"), lambda: on_quit()),
         )
         self._icon = pystray.Icon("MeetingRecorder", self._idle, "Meeting Recorder", menu)
         self._thread: threading.Thread | None = None
