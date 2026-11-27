@@ -48,7 +48,8 @@
     { "@type": "Question", "name": "Which platforms does it support?", "acceptedAnswer": { "@type": "Answer", "text": "Windows, macOS and Linux." } },
     { "@type": "Question", "name": "Does it work with Zoom, Microsoft Teams and Google Meet?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It records your microphone and the system audio together, so it captures any meeting app, no plugins and no bots." } },
     { "@type": "Question", "name": "Can it run completely offline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online." } },
-    { "@type": "Question", "name": "Do I need an account or an API key?", "acceptedAnswer": { "@type": "Answer", "text": "No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model." } }
+    { "@type": "Question", "name": "Do I need an account or an API key?", "acceptedAnswer": { "@type": "Answer", "text": "No account. Summaries can use your existing Claude login (no key needed), the Anthropic or OpenAI (ChatGPT) API, or a fully local model." } },
+    { "@type": "Question", "name": "What languages is the app available in?", "acceptedAnswer": { "@type": "Answer", "text": "The interface comes in 15 languages: English, Italian, Spanish, French, German, Portuguese, Dutch, Polish, Turkish, Russian, Ukrainian, Chinese, Japanese, Korean and Hindi. Transcription itself handles far more, with automatic language detection." } }
   ]
 }
 </script>
@@ -178,7 +179,12 @@
   .dl .card{text-align:center}
   .dl .plat{font-weight:700;font-size:1.12rem;margin:.2rem 0}
   .dl .sub{color:var(--muted);font-size:.9rem;margin-bottom:14px}
+  .dl .alt{margin-top:10px;font-size:.86rem}
+  .dl .alt a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+  .dl .alt a:hover{color:var(--ink)}
+  .dlver{color:var(--muted);font-weight:600;font-size:.95rem}
   .note{text-align:center;color:var(--muted);font-size:.92rem}
+  .note a{font-weight:600}
 
   /* support */
   #support{background:radial-gradient(900px 500px at 50% 0%,#2a2340 0%,var(--crust) 60%);color:#fff}
@@ -225,10 +231,10 @@
     <h1>Meeting Recorder</h1>
     <p class="tag">Records your meetings, transcribes them <b>on your own machine</b>, tells you who said what, and writes the summary for you.</p>
     <div class="ctas">
-      <a class="btn btn-primary" href="#download">⬇ Download free</a>
+      <a class="btn btn-primary" id="hero-dl" href="#download">⬇ Download free</a>
       <a class="btn btn-ghost" href="#support">♥ Support</a>
     </div>
-    <div class="meta"><b>Windows</b> · <b>macOS</b> · <b>Linux</b> &nbsp;•&nbsp; One button &nbsp;•&nbsp; 100% local transcription</div>
+    <div class="meta"><b>Windows</b> · <b>macOS</b> · <b>Linux</b> &nbsp;•&nbsp; One button &nbsp;•&nbsp; 100% local &nbsp;•&nbsp; 15 languages</div>
     <div class="free-pill">💛 100% free &amp; donor‑supported, no subscriptions, no ads, no selling your data</div>
   </div>
 </header>
@@ -304,7 +310,8 @@
       <div class="card"><div class="ico">🎙️</div><h3>One button</h3><p>Click <b>Start Recording</b>, then <b>Stop</b>. That's all you have to do.</p></div>
       <div class="card"><div class="ico">🧑‍🤝‍🧑</div><h3>Who said what</h3><p>Your microphone and the system audio are recorded on separate channels, so every line is labelled <b>Me</b> or <b>Others</b>.</p></div>
       <div class="card"><div class="ico">💻</div><h3>Local transcription</h3><p>faster-whisper runs on your machine, with automatic language detection and timestamps. The audio never leaves it.</p></div>
-      <div class="card"><div class="ico">📝</div><h3>Automatic summaries</h3><p>Markdown notes (overview, key points, decisions, action items) from Claude, the Anthropic API, or a fully local model.</p></div>
+      <div class="card"><div class="ico">📝</div><h3>Automatic summaries</h3><p>Markdown notes (overview, key points, decisions, action items) from Claude, the Anthropic or OpenAI (ChatGPT) API, or a fully local model.</p></div>
+      <div class="card"><div class="ico">🌍</div><h3>Speaks your language</h3><p>The interface is available in 15 languages, from Spanish and German to Chinese, Japanese and Hindi. Pick yours in Settings or the first-run wizard.</p></div>
       <div class="card"><div class="ico">🔔</div><h3>Offers to record</h3><p>When Zoom, Teams or Meet start using the mic, a small prompt asks whether to record. It never records by itself.</p></div>
       <div class="card"><div class="ico">⚡</div><h3>Live transcript</h3><p>Optionally watch a rough transcript build up as you talk, and get running notes on the fly, on by choice, off by default.</p></div>
       <div class="card"><div class="ico">💾</div><h3>Crash-safe</h3><p>Audio is written to disk while you record, so a crash or power cut loses only the last couple of seconds.</p></div>
@@ -316,25 +323,26 @@
 <section id="download">
   <div class="wrap">
     <h2>Download</h2>
-    <p class="lead">Free for personal and any noncommercial use. Pick your platform, the latest release is on GitHub.</p>
+    <p class="lead">Free for personal and any noncommercial use. Pick your platform and the download starts right away <span id="dl-version" class="dlver"></span>.</p>
     <div class="dl">
       <div class="card">
         <div class="ico">🪟</div><div class="plat">Windows</div>
         <div class="sub">10 / 11 · installer (recommended)</div>
-        <a class="btn btn-primary btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Get the installer</a>
+        <a class="btn btn-primary btn-sm" id="dl-win" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">⬇ Get the installer</a>
+        <div class="alt"><a id="dl-win-zip" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">or portable&nbsp;.zip</a></div>
       </div>
       <div class="card">
         <div class="ico">🍎</div><div class="plat">macOS</div>
         <div class="sub">Apple Silicon · experimental</div>
-        <a class="btn btn-dark btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Download</a>
+        <a class="btn btn-dark btn-sm" id="dl-mac" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">⬇ Download&nbsp;.zip</a>
       </div>
       <div class="card">
         <div class="ico">🐧</div><div class="plat">Linux</div>
         <div class="sub">x64 · experimental</div>
-        <a class="btn btn-dark btn-sm" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">Download</a>
+        <a class="btn btn-dark btn-sm" id="dl-linux" href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases/latest">⬇ Download&nbsp;.tar.gz</a>
       </div>
     </div>
-    <p class="note">The builds aren't code-signed yet, on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time.<br>⚠️ Always get everyone's consent before recording a meeting.</p>
+    <p class="note">The builds aren't code-signed yet, on Windows choose <b>More info → Run anyway</b> if SmartScreen warns you; on macOS, right-click the app and choose <b>Open</b> the first time. A short wizard sets things up on first launch.<br>⚠️ Always get everyone's consent before recording a meeting. &nbsp;·&nbsp; <a href="https://github.com/giacfalk/meeting-transcribe-n-summarize/releases">Release notes &amp; older versions</a></p>
   </div>
 </section>
 
@@ -346,7 +354,8 @@
     <details><summary>Which platforms does it support?</summary><p>Windows, macOS and Linux.</p></details>
     <details><summary>Does it work with Zoom, Microsoft Teams and Google Meet?</summary><p>Yes. It records your microphone and the system audio together, so it captures any meeting app, no plugins and no bots.</p></details>
     <details><summary>Can it run completely offline?</summary><p>Yes. Transcription is always local; for summaries you can use a fully local model through Ollama, so nothing ever goes online.</p></details>
-    <details><summary>Do I need an account or an API key?</summary><p>No account. Summaries can use your existing Claude login (no key needed), the Anthropic API, or a fully local model.</p></details>
+    <details><summary>Do I need an account or an API key?</summary><p>No account. Summaries can use your existing Claude login (no key needed), the Anthropic or OpenAI (ChatGPT) API, or a fully local model.</p></details>
+    <details><summary>What languages is the app available in?</summary><p>The interface comes in 15 languages: English, Italian, Spanish, French, German, Portuguese, Dutch, Polish, Turkish, Russian, Ukrainian, Chinese, Japanese, Korean and Hindi. Transcription itself handles far more, with automatic language detection.</p></details>
   </div>
 </section>
 
@@ -385,6 +394,57 @@
       });
     }, { threshold: 0.25 });
     io.observe(demo);
+  })();
+</script>
+
+<script>
+  // Point the download buttons at the latest release's OS-specific files, so a click
+  // downloads the file directly instead of opening GitHub. If the API can't be reached,
+  // the buttons keep their fallback href to the releases page.
+  (function () {
+    var REPO = 'giacfalk/meeting-transcribe-n-summarize';
+    var SUFFIX = { win: 'windows-x64-setup.exe', winzip: 'windows-x64.zip',
+                   mac: 'macos-arm64.zip', linux: 'linux-x64.tar.gz' };
+    var BTN = { 'dl-win': 'win', 'dl-win-zip': 'winzip', 'dl-mac': 'mac', 'dl-linux': 'linux' };
+    function pick(assets, suffix) {
+      for (var i = 0; i < assets.length; i++) {
+        var n = assets[i].name || '';
+        if (n.length >= suffix.length && n.slice(-suffix.length) === suffix)
+          return assets[i].browser_download_url;
+      }
+      return null;
+    }
+    function osKey() {
+      var ua = (navigator.userAgent || '').toLowerCase();
+      if (/android|iphone|ipad|ipod|mobile/.test(ua)) return null;
+      var p = ((navigator.userAgentData && navigator.userAgentData.platform)
+               || navigator.platform || ua).toLowerCase();
+      if (p.indexOf('win') >= 0) return 'win';
+      if (p.indexOf('mac') >= 0) return 'mac';
+      if (p.indexOf('linux') >= 0 || p.indexOf('x11') >= 0) return 'linux';
+      return null;
+    }
+    fetch('https://api.github.com/repos/' + REPO + '/releases/latest',
+          { headers: { 'Accept': 'application/vnd.github+json' } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (rel) {
+        var assets = rel.assets || [], url = {};
+        Object.keys(SUFFIX).forEach(function (k) { url[k] = pick(assets, SUFFIX[k]); });
+        Object.keys(BTN).forEach(function (id) {
+          var el = document.getElementById(id), u = url[BTN[id]];
+          if (el && u) el.setAttribute('href', u);
+        });
+        var ver = (rel.tag_name || '').replace(/^v/, '');
+        var vl = document.getElementById('dl-version');
+        if (vl && ver) vl.textContent = '— latest: v' + ver;
+        var hero = document.getElementById('hero-dl'), os = osKey();
+        var name = { win: 'Windows', mac: 'macOS', linux: 'Linux' };
+        if (hero && os && url[os]) {
+          hero.setAttribute('href', url[os]);
+          hero.textContent = '⬇ Download for ' + name[os];
+        }
+      })
+      .catch(function () { /* keep the fallback links to the releases page */ });
   })();
 </script>
 
